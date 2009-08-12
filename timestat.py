@@ -76,6 +76,8 @@ class Action:
 
     def calc(self):
         r = ReMatch()
+        if self.text == '':
+            return False
         if self.text == 'stop':
             self.type = 'stop'
         elif r.match('^([^ ]+)$', self.text):
@@ -87,6 +89,8 @@ class Action:
             self.activity = r.group(2)
         else:
             print 'WARNING: Incorrect line'
+            return False
+        return True
 
     def between(self, since, until):
         return ((since == None or self.datetime.date() >= since) and
@@ -122,8 +126,9 @@ def parse_actionfile(filename):
                             int(r.group('minute')),
                             int(r.group('second')))
                     action.text = r.group('text')
-                    action.calc()
-                    actions.append(action)
+                    add = action.calc()
+                    if add:
+                        actions.append(action)
                 except Exception:
                     print 'WARNING: Incorrect line'
     return actions
@@ -170,6 +175,12 @@ def parse_args():
                       help='Work with actions until this date. (yyyy-mm-dd)')
     parser.add_option('-f', '--actionfiles', dest='actionfiles',
                       help='Action files, separated with colon')
+    parser.add_option('-s', '--sum', dest='sum',
+                      action='store_true', default=False,
+                      help='Print only the sum of the activity time.')
+    parser.add_option('-H', '--hour', dest='hour',
+                      action='store_true', default=False,
+                      help='Print in HH:MM format.')
 
     options, args = parser.parse_args()
 
@@ -189,6 +200,9 @@ def parse_args():
 
     return options, args
 
+def to_hour(i):
+    return '%s:%s' % (i / 60, i % 60)
+
 def main():
     options, args = parse_args()
     actions = []
@@ -198,6 +212,13 @@ def main():
     actions = [ action for action in actions
                 if action.between(options.since, options.until) ]
     d = collect_activities(actions)
-    print d
+    if options.sum:
+        time_sum = sum(d.values())
+        if options.hour:
+            time_sum = to_hour(time_sum)
+        print time_sum
+    else:
+        print d
 
 main()
+
