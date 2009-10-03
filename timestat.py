@@ -201,7 +201,7 @@ def parse_args():
     return options, args
 
 def to_hour(i):
-    return '%s:%s' % (i / 60, i % 60)
+    return '%02d:%02d' % (i / 60, i % 60)
 
 def main():
     options, args = parse_args()
@@ -218,7 +218,14 @@ def main():
             time_sum = to_hour(time_sum)
         print time_sum
     else:
-        print d
+        if options.hour:
+            d2 = {}
+            for key, value in d.items():
+                d2[key] = to_hour(value)
+        else:
+            d2 = d
+        for key, value in sorted(d2.items()):
+            print '%s: %s' % (key, value)
 
 main()
 
