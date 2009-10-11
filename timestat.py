@@ -157,6 +157,35 @@ def collect_activities(actions):
 
     return activities
 
+def collect_actions_2(actions):
+
+    actions_res = []
+
+    def add_action(activity, startime, timelen):
+        """Adds an activity to the dict."""
+        action = Action()
+        action.text = activity
+        action.datetime = startime
+        action.timelen = timelen
+        actions_res.append(action)
+        
+    for index, action in enumerate(actions):
+        if action.type == 'interval':
+            add_action(action.activity, action.datetime, action.timelen)
+        elif action.type == 'stop':
+            pass
+        elif action.type == 'start':
+            if index+1 < len(actions):
+                nextactiontime = actions[index+1].datetime
+            else:
+                nextactiontime = datetime.datetime.now()
+            add_action(
+                action.activity,
+                action.datetime,
+                (nextactiontime - action.datetime).seconds / 60)
+
+    return actions_res
+
 def date_str_to_date(s):
     r = re.match('(\d\d\d\d)-(\d\d)-(\d\d)', s)
     return \
@@ -175,6 +204,9 @@ def parse_args():
                       help='Work with actions until this date. (yyyy-mm-dd)')
     parser.add_option('-f', '--actionfiles', dest='actionfiles',
                       help='Action files, separated with colon')
+    parser.add_option('-w', dest='weekly_sum',
+                      action='store_true', default=False,
+                      help='Print a weekly summary.')
     parser.add_option('-s', '--sum', dest='sum',
                       action='store_true', default=False,
                       help='Print only the sum of the activity time.')
@@ -211,21 +243,32 @@ def main():
     actions.sort()
     actions = [ action for action in actions
                 if action.between(options.since, options.until) ]
-    d = collect_activities(actions)
-    if options.sum:
-        time_sum = sum(d.values())
-        if options.hour:
-            time_sum = to_hour(time_sum)
-        print time_sum
+    if options.weekly_sum:
+        actions = collect_actions_2(actions)
+        d = {}
+        for action in actions:
+            x = int(action.datetime.strftime("%W"))
+            d.setdefault(x, 0)
+            d[x] += action.timelen
+        for k in sorted(d.keys()):
+            print k,
+            print 'x' * (d[k] / 60)
+
     else:
-        if options.hour:
-            d2 = {}
-            for key, value in d.items():
-                d2[key] = to_hour(value)
+        d = collect_activities(actions)
+        if options.sum:
+            time_sum = sum(d.values())
+            if options.hour:
+                time_sum = to_hour(time_sum)
+            print time_sum
         else:
-            d2 = d
-        for key, value in sorted(d2.items()):
-            print '%s: %s' % (key, value)
+            if options.hour:
+                d2 = {}
+                for key, value in d.items():
+                    d2[key] = to_hour(value)
+            else:
+                d2 = d
+            for key, value in sorted(d2.items()):
+                print '%s: %s' % (key, value)
 
 main()
-
