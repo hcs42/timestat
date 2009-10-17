@@ -54,7 +54,7 @@ import optparse
 import os
 
 class ReMatch():
-    
+
     def match(self, *args, **kw):
         self.r = re.match(*args, **kw)
         return self.r
@@ -140,7 +140,7 @@ def collect_activities(actions):
     def add_activity(activity, timelen):
         """Adds an activity to the dict."""
         activities[activity] = activities.get(activity, 0) + timelen
-        
+
     for index, action in enumerate(actions):
         if action.type == 'interval':
             add_activity(action.activity, action.timelen)
@@ -152,7 +152,7 @@ def collect_activities(actions):
             else:
                 nextactiontime = datetime.datetime.now()
             add_activity(
-                action.activity, 
+                action.activity,
                 (nextactiontime - action.datetime).seconds / 60)
 
     return activities
@@ -168,7 +168,7 @@ def collect_actions_2(actions):
         action.datetime = startime
         action.timelen = timelen
         actions_res.append(action)
-        
+
     for index, action in enumerate(actions):
         if action.type == 'interval':
             add_action(action.activity, action.datetime, action.timelen)
