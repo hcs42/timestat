@@ -72,7 +72,10 @@ class Action:
                 (self.datetime, repr(self.text)))
 
     def __lt__(self, other):
-        return self.datetime < other.datetime
+        if self.type == 'interval':
+            return True # intervals first
+        else:
+            return self.datetime < other.datetime
 
     def calc(self):
         r = ReMatch()
@@ -141,6 +144,7 @@ def collect_activities(actions):
         """Adds an activity to the dict."""
         activities[activity] = activities.get(activity, 0) + timelen
 
+    current = None
     for index, action in enumerate(actions):
         if action.type == 'interval':
             add_activity(action.activity, action.timelen)
@@ -151,11 +155,12 @@ def collect_activities(actions):
                 nextactiontime = actions[index+1].datetime
             else:
                 nextactiontime = datetime.datetime.now()
+                current = action
             add_activity(
                 action.activity,
                 (nextactiontime - action.datetime).seconds / 60)
 
-    return activities
+    return activities, current
 
 def collect_actions_2(actions):
 
@@ -213,6 +218,9 @@ def parse_args():
     parser.add_option('-H', '--hour', dest='hour',
                       action='store_true', default=False,
                       help='Print in HH:MM format.')
+    parser.add_option('-c', '--current', dest='current',
+                      action='store_true', default=False,
+                      help='Display the name of ongoing task, if any.')
 
     options, args = parser.parse_args()
 
@@ -255,8 +263,12 @@ def main():
             print 'x' * (d[k] / 60)
 
     else:
-        d = collect_activities(actions)
-        if options.sum:
+        d, c = collect_activities(actions)
+        if options.current:
+            if c is not None:
+                time = (datetime.datetime.now() - c.datetime).seconds / 60
+                print '%s:%d' % (c.text, time)
+        elif options.sum:
             time_sum = sum(d.values())
             if options.hour:
                 time_sum = to_hour(time_sum)
