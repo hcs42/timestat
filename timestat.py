@@ -41,7 +41,7 @@ Example (assuming the previous lines are in bashrc):
     $ cat .../myactionfile
     [2009-07-25 20:33:07] mywork
     [2009-07-25 20:53:11] stop
-    [2009-07-25 20:54:11] myotherwork
+    [2009-07-25 20:54:11] 10 myotherwork
     $ ./timestat.py
     {'myotherwork': 10, 'mywork': 20}
 """
