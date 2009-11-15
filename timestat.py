@@ -210,6 +210,10 @@ def parse_args():
     parser.add_option('-s', '--sum', dest='sum',
                       action='store_true', default=False,
                       help='Print only the sum of the activity time.')
+    parser.add_option('-i', '--ignore-activities', dest='ignore_activities',
+                      default='',
+                      help='Ignores the given activities. The activities are '
+                      'separated by colons.')
     parser.add_option('-H', '--hour', dest='hour',
                       action='store_true', default=False,
                       help='Print in HH:MM format.')
@@ -243,19 +247,28 @@ def main():
     actions.sort()
     actions = [ action for action in actions
                 if action.between(options.since, options.until) ]
+
+    ignored_activities = \
+        set(options.ignore_activities.split(':')) - set([''])
+
     if options.weekly_sum:
         actions = collect_actions_2(actions)
         d = {}
         for action in actions:
-            x = int(action.datetime.strftime("%W"))
-            d.setdefault(x, 0)
-            d[x] += action.timelen
+            if action.text not in ignored_activities:
+                x = int(action.datetime.strftime("%W"))
+                d.setdefault(x, 0)
+                d[x] += action.timelen
         for k in sorted(d.keys()):
             print k,
             print 'x' * (d[k] / 60)
 
     else:
         d = collect_activities(actions)
+        keys = d.keys()
+        for activity in keys:
+            if activity in ignored_activities:
+                del d[activity]
         if options.sum:
             time_sum = sum(d.values())
             if options.hour:
