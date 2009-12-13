@@ -107,7 +107,7 @@ def parse_actionfile(filename):
         #    line_number += 1
         for line in f:
             line = line.strip()
-            if line != '':
+            if line != '' and line[0] != '#':
                 try:
                     r = re.match(
                             r'\[(?P<year>\d\d\d\d)-'
