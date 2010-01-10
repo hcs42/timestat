@@ -264,7 +264,8 @@ def main():
         d = {}
         for action in actions:
             if action.text not in ignored_activities:
-                x = int(action.datetime.strftime("%W"))
+                year, week_number, week_day = action.datetime.isocalendar()
+                x = '%s-%02d' % (year, week_number)
                 d.setdefault(x, 0)
                 d[x] += action.timelen
         for k in sorted(d.keys()):
