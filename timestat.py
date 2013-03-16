@@ -53,6 +53,9 @@ import datetime
 import optparse
 import os
 
+def timedelta_to_min(td):
+    return int(td.total_seconds() / 60)
+
 class ReMatch():
 
     def match(self, *args, **kw):
@@ -158,7 +161,7 @@ def collect_activities(actions):
                 current = action
             add_activity(
                 action.activity,
-                (nextactiontime - action.datetime).seconds / 60)
+                timedelta_to_min(nextactiontime - action.datetime))
 
     return activities, current
 
@@ -187,7 +190,7 @@ def collect_actions_2(actions):
             add_action(
                 action.activity,
                 action.datetime,
-                (nextactiontime - action.datetime).seconds / 60)
+                timedelta_to_min(nextactiontime - action.datetime))
 
     return actions_res
 
@@ -283,7 +286,7 @@ def main():
 
         if options.current:
             if c is not None:
-                time = (datetime.datetime.now() - c.datetime).seconds / 60
+                time = timedelta_to_min(datetime.datetime.now() - c.datetime)
                 print '%s:%d' % (c.text, time)
         elif options.sum:
             time_sum = sum(d.values())
