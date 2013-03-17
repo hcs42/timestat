@@ -1,0 +1,22 @@
+- Activity filter: --filter=day:1-5 --filter=hour:8-16
+    - move "between" filtering into "events"
+    - maybe deprecate --ignore-activities in favor of this
+- timestat switch # switch to other activity
+- timestat --interactive switch
+    - switch to other activity by showing the last 10 tasks
+- more support for hierarchy?
+    - work/x, work/y, hobby/a, hobby/b, hobby/ew/configuration
+    - timestat --prefix=work/
+    - TIMESTAT_PREFIX
+    - --filter work
+    - easy renaming for the items in the hierarchy
+    - warning when a new task is created
+- review statistics, nicer outputs, aggregated week information
+- dates
+    - date: today, yesterday, etc.
+    - --today, --thisweek?
+- comments:
+    - [...] mywork # fixing bug 23 -- do I want this?
+- normalization:
+    - intervals should use hh:mm in action files
+    - -H should be the default

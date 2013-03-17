@@ -1,0 +1,869 @@
+#!/usr/bin/python
+
+# This file is part of Timestat.
+#
+# Timestat is free software: you can redistribute it and/or modify it under the
+# terms of the GNU General Public License as published by the Free Software
+# Foundation, either version 3 of the License, or (at your option) any later
+# version.
+#
+# Timestat is distributed in the hope that it will be useful, but WITHOUT ANY
+# WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+# A PARTICULAR PURPOSE.  See the GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along with
+# Timestat.  If not, see <http://www.gnu.org/licenses/>.
+
+# Copyright (C) 2009-2013 Csaba Hoch
+
+
+"""Program for creating time statistics about activities one does.
+
+See README.markdown for more information."""
+
+
+##### Imports #####
+
+
+from __future__ import with_statement
+import datetime
+import optparse
+import os
+import re
+import subprocess
+import sys
+
+
+##### Helper functions: date and time #####
+
+
+def timedelta_to_mins(td):
+    return int(td.total_seconds() / 60)
+
+
+def mins_to_timedelta(mins):
+    return datetime.timedelta(seconds = mins * 60)
+
+
+def str_to_date(s):
+    r = re.match('(\d\d\d\d)-(\d\d)-(\d\d)', s)
+    return \
+        datetime.date(
+            int(r.group(1)),
+            int(r.group(2)),
+            int(r.group(3)))
+
+
+def str_to_datetime(s):
+    return datetime.datetime.strptime(s, '%Y-%m-%d %H:%M:%S')
+
+
+def datetime_to_str(dt):
+    return dt.strftime('%Y-%m-%d %H:%M:%S')
+
+
+def hhmm_to_mins(s):
+    r = re.match('^(?:(\d+):)?(\d+)$', s)
+    hours = int(r.group(1)) if r.group(1) is not None else 0
+    minutes = int(r.group(2))
+    return hours * 60 + minutes
+
+
+def mins_to_hhmm(i):
+    return '%02d:%02d' % (i / 60, i % 60)
+
+
+def get_now():
+    # Get rid of microseconds
+    now = datetime.datetime.now()
+    return datetime.datetime(year=now.year,
+                             month=now.month,
+                             day=now.day,
+                             hour=now.hour,
+                             minute=now.minute,
+                             second=now.second)
+
+
+##### Helper functions: misc #####
+
+
+class ReMatch():
+
+    def match(self, *args, **kw):
+        self.r = re.match(*args, **kw)
+        return self.r
+
+    def __getattr__(self, attr):
+        return getattr(self.r, attr)
+
+
+def editor_to_editor_list(editor):
+    r"""Converts an editor variable to a list of program name and arguments.
+
+    Argument:
+
+    - editor (str)
+
+    Returns: [str]
+
+    Examples:
+
+        >>> editor_to_editor_list('gvim')
+        ['gvim']
+        >>> editor_to_editor_list('vim arg1 arg2')
+        ['vim', 'arg1', 'arg2']
+        >>> editor_to_editor_list('vim long\\ argument')
+        ['vim', 'long argument']
+        >>> editor_to_editor_list('vim argument\\\\with\\\\backslash')
+        ['vim', 'argument\\with\\backslash']
+    """
+
+    editor_list = []
+    current_arg = []
+    i = 0
+    while i < len(editor):
+        # If a backslash is found, the next character has to be a space or a
+        # backslash, and it should be added to the current argument.
+        if editor[i] == '\\':
+            if len(editor) <=  i + 1:
+                print ('ERROR: Unescaped backslash in $EDITOR should not be '
+                       'the final character.')
+                sys.exit(1)
+            i += 1
+            if editor[i] in [' ', '\\']:
+                current_arg.append(editor[i])
+            else:
+                print 'ERROR: Unexpected character after backslash in $EDITOR.'
+                sys.exit(1)
+        # If a space is found, a new argument should be started.
+        elif editor[i] == ' ':
+            if current_arg != []:
+                editor_list.append(''.join(current_arg))
+                current_arg = []
+        # Otherwise the current character has to be added to the current
+        # argument.
+        else:
+            current_arg.append(editor[i])
+        i += 1
+    if current_arg != []:
+        editor_list.append(''.join(current_arg))
+        current_arg = []
+    return editor_list
+
+
+##### Model classes: actions, events, happenings #####
+
+
+class Happening:
+
+    def is_action(self):
+        return False
+
+    def is_event(self):
+        return False
+
+
+class Action(Happening):
+
+    # Fields:
+    # - datetime
+    # - text
+    # - type: start | stop | interval | target
+    # - activity
+    # - timelen (minutes; only if type is 'interval' or 'target')
+
+    fields = ('datetime', 'text', 'type', 'activity', 'timelen')
+
+    def __init__(self, **kwargs):
+        for field in Action.fields:
+            setattr(self, field, kwargs.get(field))
+
+    def __eq__(self, other):
+        if other.__class__ != Action:
+            return False
+        for attr in Action.fields:
+            if getattr(self, attr) != getattr(other, attr):
+                return False
+        return True
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
+    def __str__(self):
+        return self.__repr__()
+
+    def __repr__(self):
+        field_strs = [ '%s=%s' % (attr, getattr(self, attr))
+                       for attr in Action.fields ]
+        return '<Action: %s>' % (', '.join(field_strs))
+
+    def is_action(self):
+        return True
+
+    def __lt__(self, other):
+        if self.type == 'interval':
+            return True # intervals first
+        else:
+            return self.datetime < other.datetime
+
+    def calc(self):
+        r = ReMatch()
+        if self.text == '':
+            return False
+        if self.text == 'stop':
+            self.type = 'stop'
+        elif r.match('^([^ ]+)$', self.text):
+            self.type = 'start'
+            self.activity = r.group(1)
+        elif r.match('^increase-target ([^ ]+) ((?:\d|:)+)$', self.text):
+            self.type = 'target'
+            self.activity = r.group(1)
+            self.timelen = hhmm_to_mins(r.group(2))
+        elif r.match('^((?:\d|:)+) ([^ ]+)$', self.text):
+            self.type = 'interval'
+            self.timelen = hhmm_to_mins(r.group(1))
+            self.activity = r.group(2)
+        else:
+            print 'WARNING: Incorrect line:', text
+            return False
+        return True
+
+    def between(self, since, until):
+        return ((since == None or self.datetime.date() >= since) and
+                (until == None or self.datetime.date() <= until))
+
+
+class Event(Happening):
+
+    # Fields:
+    # - starttime
+    # - stoptime
+    # - activity
+    # - timelen (minutes)
+    # - ongoing
+
+    fields = ('starttime', 'stoptime', 'activity', 'timelen', 'ongoing')
+
+    def __init__(self, **kwargs):
+        for field in Event.fields:
+            setattr(self, field, kwargs.get(field))
+        if self.ongoing is None:
+            self.ongoing = False
+
+    def __eq__(self, other):
+        if other.__class__ != Event:
+            return False
+        for attr in Event.fields:
+            if getattr(self, attr) != getattr(other, attr):
+                return False
+        return True
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
+    def __str__(self):
+        return self.__repr__()
+
+    def __repr__(self):
+        field_strs = [ '%s=%s' % (attr, getattr(self, attr))
+                       for attr in Event.fields ]
+        return '<Event: %s>' % (', '.join(field_strs))
+
+    def is_event(self):
+        return True
+
+
+##### Action file handling #####
+
+
+def process_actionfile_line(dt, text, actions):
+    action = Action()
+    action.datetime = dt
+    action.text = text
+    add = action.calc()
+    if add:
+        actions.append(action)
+
+
+def parse_actionfile(filename):
+    actions = []
+    with open(filename) as f:
+        #for line_number, line in enumerate(f):
+        #    line_number += 1
+        for line in f:
+            line = line.strip()
+            if line != '' and line[0] != '#':
+                try:
+                    r = re.match(
+                            r'\[(?P<year>\d\d\d\d)-'
+                            r'(?P<month>\d\d)-'
+                            r'(?P<day>\d\d) '
+                            r'(?P<hour>\d\d):'
+                            r'(?P<minute>\d\d):'
+                            r'(?P<second>\d\d)\] '
+                            r'(?P<text>.*)',
+                            line)
+                    assert(r != None)
+                    dt = datetime.datetime(
+                             int(r.group('year')),
+                             int(r.group('month')),
+                             int(r.group('day')),
+                             int(r.group('hour')),
+                             int(r.group('minute')),
+                             int(r.group('second')))
+                    process_actionfile_line(dt, r.group('text'), actions)
+                except Exception, e:
+                    print e
+                    print 'WARNING: Incorrect line:', line
+    return actions
+
+
+def collect_actions(options):
+    actions = []
+    for actionfile in options.actionfiles:
+        actions += parse_actionfile(actionfile)
+    actions.sort()
+    actions = [ action for action in actions
+                if action.between(options.since, options.until) ]
+    return actions
+
+
+def collect_happenings(options, actions, now=None):
+
+    if now is None:
+        now = get_now()
+
+    happenings = []
+
+    def add_event(activity, starttime, timelen):
+        """Adds an activity to the dict."""
+        if activity not in options.ignored_activities:
+            event = Event(activity=activity,
+                          starttime=starttime,
+                          timelen=timelen)
+            if timelen is not None:
+                event.stoptime = event.starttime + mins_to_timedelta(timelen)
+            else:
+                event.ongoing = True
+            happenings.append(event)
+
+    def close_prev_event(stoptime, ongoing):
+
+        # Find the last event
+        i = len(happenings) - 1
+        while i >= 0:
+            if happenings[i].is_event():
+                last_event = happenings[i]
+                break
+            i -= 1
+        else:
+            # No event found
+            return
+
+        # Close the last event
+        if last_event.ongoing:
+            last_event.stoptime = stoptime
+            last_event.timelen = \
+                timedelta_to_mins(stoptime - last_event.starttime)
+            if not ongoing:
+                last_event.ongoing = False
+
+    for action in actions:
+        if action.type == 'interval':
+            add_event(action.activity, action.datetime, action.timelen)
+        elif action.type == 'start':
+            close_prev_event(action.datetime, ongoing=False)
+            add_event(action.activity, action.datetime, None)
+        elif action.type == 'stop':
+            close_prev_event(action.datetime, ongoing=False)
+        elif action.type == 'target':
+            happenings.append(action)
+
+    close_prev_event(now, ongoing=True)
+
+    return happenings
+
+
+def collect_events(options, happenings):
+    return [ happening for happening in happenings
+                       if happening.is_event() ]
+
+
+def collect_activities(options, events):
+    activities = {}
+    for event in events:
+        activities.setdefault(event.activity, 0)
+        activities[event.activity] += event.timelen
+    return activities
+
+
+def get_categories(activity):
+    words = activity.split('/')
+    return [ '/'.join(words[:i]) for i in range(1, len(words) + 1) ]
+
+
+def collect_targets(options, happenings, activities):
+    targets = {}
+
+    # Collect targets
+    for happening in happenings:
+        if happening.is_action() and happening.type == 'target':
+            targets.setdefault(
+                happening.activity,
+                {'target_timelen': 0,
+                 'actual_timelen': 0})
+            targets[happening.activity]['target_timelen'] += happening.timelen
+
+    # Collect work
+    for activity, mins in activities.items():
+        for category in get_categories(activity):
+            if category in targets:
+                targets[category]['actual_timelen'] += mins
+
+    return targets
+
+
+def collect_everything(options):
+    actions = collect_actions(options)
+    happenings = collect_happenings(options, actions)
+    events = collect_events(options, happenings)
+    activities = collect_activities(options, events)
+    return actions, happenings, events, activities
+
+##### Command functions #####
+
+
+def show_weekly_sum(options):
+    actions, happenings, events, activities = collect_everything(options)
+    d = {}
+    for event in events:
+        year, week_number, week_day = event.starttime.isocalendar()
+        x = '%s-%02d' % (year, week_number)
+        d.setdefault(x, 0)
+        d[x] += event.timelen
+    for k in sorted(d.keys()):
+        print k,
+        print 'x' * (d[k] / 60)
+
+
+def show_status(options):
+    actions, happenings, events, activities = collect_everything(options)
+
+    if len(events) == 0:
+        print 'No event found.'
+
+    else:
+        event = events[-1]
+        print 'State:', 'on' if event.ongoing else 'off'
+        print 'Current' if event.ongoing else 'Last', 'activity:', \
+              event.activity
+        print 'Start time:', event.starttime.strftime('%H:%M')
+
+        if event.ongoing:
+            print 'Current time:', event.stoptime.strftime('%H:%M')
+            print 'Time since started:', mins_to_hhmm(event.timelen)
+        else:
+            print 'Stop time:', event.stoptime.strftime('%H:%M')
+            print 'Time length:', mins_to_hhmm(event.timelen)
+
+
+def show_targets(options):
+    actions, happenings, events, activities = collect_everything(options)
+    targets = collect_targets(options, happenings, activities)
+    for target_name, target_result in targets.items():
+        target_timelen = target_result['target_timelen']
+        actual_timelen = target_result['actual_timelen']
+        print 'Target name:', target_name
+        print 'Target time:', mins_to_hhmm(target_timelen)
+        print 'Actual time:', mins_to_hhmm(actual_timelen)
+        print 'Difference:', mins_to_hhmm(actual_timelen - target_timelen)
+        print
+
+
+def show(options):
+    if options.weekly_sum:
+        show_weekly_sum(options)
+    else:
+
+        actions, happenings, events, activities = collect_everything(options)
+
+        if options.current:
+            if len(events) > 0 and events[-1].ongoing:
+                event = events[-1]
+                print '%s:%d' % (event.activity, event.timelen)
+
+        elif options.sum:
+            time_sum = sum(activities.values())
+            time_sum = mins_to_hhmm(time_sum)
+            print time_sum
+        else:
+            d2 = {}
+            for key, value in activities.items():
+                d2[key] = mins_to_hhmm(value)
+            for key, value in sorted(d2.items()):
+                print '%s: %s' % (key, value)
+
+
+def add(options, action):
+    if options.actionfile == 'ALL':
+        print 'Error: Action file "ALL" is not accepted by "add".'
+        sys.exit(1)
+
+    dt = get_now()
+    actionfile_name = options.actionfile
+    with open(actionfile_name, 'a') as f:
+        f.write('[%s] %s\n' % (datetime_to_str(dt), action))
+
+
+def edit(options):
+    if options.actionfile == 'ALL':
+        actionfile_names = options.actionfiles
+    else:
+        actionfile_names = [options.actionfiles[0]]
+    editor = os.getenv('EDITOR', 'vi')
+    editor_list = editor_to_editor_list(editor)
+    subprocess.call(editor_list + actionfile_names)
+
+
+def list_actionfiles(options):
+    for actionfile in options.actionfiles:
+        print actionfile
+
+
+def quickadd(options, args):
+
+    if options.actionfile == 'ALL':
+        print 'Error: Action file "ALL" is not accepted by "quickadd".'
+        sys.exit(1)
+
+    # If we have a parameter, just pass it to "add"
+    if len(args) >= 1:
+        add(options, ' '.join(args))
+        return
+
+    # If we don't have a parameter...
+    actions = parse_actionfile(options.actionfile)
+    i = len(actions) - 1
+    state = 'initial'
+
+    while i >= 0:
+        action = actions[i]
+
+        # If the last effective action was a 'stop', quickadd should resume the
+        # previous 'start' or 'interval' action
+        if state == 'initial' and action.type == 'stop':
+            state = 'looking_for_start'
+
+        elif (state == 'looking_for_start' and
+              action.type in ('start', 'interval')):
+            add(options, action.activity)
+            print '"%s" activity resumed' % (action.activity,)
+            break
+
+        # If the last effective action was a 'start', quickadd should stop that
+        # action
+        elif state == 'initial' and action.type in ('start', 'interval'):
+            add(options, 'stop')
+            print '"%s" activity stopped' % (action.activity,)
+            break
+
+        i -= 1
+
+    else:
+        print 'ERROR: Action file does not contain any effective action!'
+        sys.exit(1)
+
+
+##### Option and command parsing #####
+
+
+def parse_args():
+
+    parser = optparse.OptionParser(
+                usage='''%prog [options] [COMMAND [COMMAND PARAMETERS]]
+
+Read manual.markdown more information.''', version = '%prog 2.0')
+
+    # Common options
+    parser.add_option('-f', '--actionfiles', dest='actionfiles',
+                      help='Action files, separated with colon')
+
+    # "show" options
+    parser.add_option('--since', dest='since',
+                      help='Work with actions since this date.')
+    parser.add_option('--until', dest='until',
+                      help='Work with actions until this date.')
+    parser.add_option('-w', '--weekly-sum', dest='weekly_sum',
+                      action='store_true', default=False,
+                      help='Print a weekly summary.')
+    parser.add_option('-s', '--sum', dest='sum',
+                      action='store_true', default=False,
+                      help='Print only the sum of the activity time.')
+    parser.add_option('-i', '--ignore-activities', dest='ignored_activities',
+                      default='',
+                      help='Ignores the given activities.')
+    parser.add_option('-c', '--current', dest='current',
+                      action='store_true', default=False,
+                      help='Display the name of ongoing task, if any.')
+
+    # "add" and "edit" options
+    parser.add_option('--actionfile', dest='actionfile',
+                      help='Specify which action file to use.')
+
+    options, args = parser.parse_args()
+
+    # Prepare: since and until
+    if options.since is not None:
+        options.since = str_to_date(options.since)
+    if options.until is not None:
+        options.until = str_to_date(options.until)
+
+    # Prepare: ignored_activities
+    options.ignored_activities = \
+        set(options.ignored_activities.split(':')) - set([''])
+
+    # Prepare: actionfiles
+    if options.actionfiles is not None:
+        options.actionfiles = options.actionfiles.split(':')
+    elif os.getenv('ACTIONFILES') is not None:
+        options.actionfiles = os.getenv('ACTIONFILES').split(':')
+    else:
+        print 'You should set either the ACTIONFILES environment variable or '
+        print 'give --actionfiles argument!'
+        sys.exit(1)
+
+    # Prepare: actionfile
+    if options.actionfile is None:
+        options.actionfile = options.actionfiles[0]
+    elif options.actionfile == 'ALL':
+        pass
+    else:
+        match_count = 0
+        for actionfile in options.actionfiles:
+            if options.actionfile in os.path.basename(actionfile):
+                options.actionfile = actionfile
+                match_count += 1
+        if match_count == 1:
+            pass
+        else:
+            if match_count == 0:
+                print 'Error: Cannot find action file in action file list!'
+            else:
+                print 'Error: More than one action files match!'
+            print 'Action file:', options.actionfile
+            print 'Action file list:', options.actionfiles
+            sys.exit(1)
+
+    return options, args
+
+
+##### Main function (running the commands) #####
+
+
+def main():
+
+    options, args = parse_args()
+
+    def check_args(num):
+        if len(args) - 1 != num:
+            plural = 's' if num >= 2 else ''
+            print ('Error: the "%s" command requires exactly %s argument%s '
+                   '(%s was given).' %
+                   (args[0], num, plural, len(args) - 1))
+            sys.exit(1)
+
+    def check_min_args(num):
+        if len(args) - 1 < num:
+            plural = 's' if num >= 2 else ''
+            print ('Error: the "%s" command requires at least %s argument%s '
+                   '(%s was given).' %
+                   (args[0], num, plural, len(args) - 1))
+            sys.exit(1)
+
+    if args == []:
+        show(options)
+    elif args[0] == 'show':
+        check_args(0)
+        show(options)
+    elif args[0] == 'show-weekly-sum':
+        check_args(0)
+        show_weekly_sum(options)
+    elif args[0] == 'show-status':
+        check_args(0)
+        show_status(options)
+    elif args[0] == 'show-targets':
+        check_args(0)
+        show_targets(options)
+    elif args[0] in ('a', 'add'):
+        check_min_args(1)
+        add(options, ' '.join(args[1:]))
+    elif args[0] == 'quickadd':
+        quickadd(options, args[1:])
+    elif args[0] in ('e', 'edit'):
+        check_args(0)
+        edit(options)
+    elif args[0] == 'list':
+        check_args(0)
+        list_actionfiles(options)
+    elif args[0] == 'test':
+        check_args(0)
+        sys.argv = sys.argv[0:1] # unittest reads sys.argv
+        unittest.main()
+    else:
+        print 'Error: unrecognized command:', args[0]
+        sys.exit(1)
+
+
+##### Unit tests #####
+
+
+import unittest
+import tempfile
+
+
+class TestTimestat(unittest.TestCase):
+
+    def setUp(self):
+        self.tmpfile = ''
+
+        class Options:
+            pass
+        self.options = Options()
+        self.options.ignored_activities = []
+
+    def tearDown(self):
+        if self.tmpfile != '':
+            os.remove(self.tmpfile)
+
+    def test_hhmm_to_mins(self):
+
+        self.assertEqual(hhmm_to_mins('0'), 0)
+        self.assertEqual(hhmm_to_mins('1'), 1)
+        self.assertEqual(hhmm_to_mins('100'), 100)
+
+        self.assertEqual(hhmm_to_mins('00:00'), 0)
+        self.assertEqual(hhmm_to_mins('1:40'), 100)
+        self.assertEqual(hhmm_to_mins('120:10'), 7210)
+
+    def test_mins_to_hhmm(self):
+        self.assertEqual(mins_to_hhmm(0), '00:00')
+        self.assertEqual(mins_to_hhmm(1), '00:01')
+        self.assertEqual(mins_to_hhmm(100), '01:40')
+        self.assertEqual(mins_to_hhmm(7210), '120:10')
+
+
+    def test_get_categories(self):
+        self.assertEqual(get_categories('ab'), ['ab'])
+        self.assertEqual(get_categories('a/b/c'), ['a', 'a/b', 'a/b/c'])
+
+
+    def test_actionfile(self):
+
+        # Actionfile
+        fd, filename = tempfile.mkstemp()
+        self.tempfile = filename
+        os.write(fd, '''
+[2000-01-01 00:00:00] mywork
+
+# Comment
+[2000-01-01 00:10:00] myotherwork
+[2000-01-01 00:12:00] increase-target mywork 5
+[2000-01-01 00:20:00] stop
+''')
+        os.close(fd)
+
+        # Actions
+        actual_actions = parse_actionfile(filename)
+        expected_actions = [
+            Action(datetime=str_to_datetime("2000-01-01 00:00:00"),
+                   text='mywork', type='start',
+                   activity='mywork'),
+            Action(datetime=str_to_datetime("2000-01-01 00:10:00"),
+                   text='myotherwork', type='start',
+                   activity='myotherwork'),
+            Action(datetime=str_to_datetime("2000-01-01 00:12:00"),
+                   text='increase-target mywork 5', type='target',
+                   activity='mywork', timelen=5),
+            Action(datetime=str_to_datetime("2000-01-01 00:20:00"),
+                   text='stop', type='stop')]
+        self.assertEqual(actual_actions, expected_actions)
+
+        # Happenings
+        actual_happenings = collect_happenings(self.options, actual_actions)
+        expected_happenings = [
+            Event(starttime=str_to_datetime("2000-01-01 00:00:00"),
+                  stoptime=str_to_datetime("2000-01-01 00:10:00"),
+                  activity='mywork',
+                  timelen=10),
+            Event(starttime=str_to_datetime("2000-01-01 00:10:00"),
+                  stoptime=str_to_datetime("2000-01-01 00:20:00"),
+                  activity='myotherwork',
+                  timelen=10),
+            Action(datetime=str_to_datetime("2000-01-01 00:12:00"),
+                   text='increase-target mywork 5', type='target',
+                   activity='mywork', timelen=5)]
+        self.assertEqual(actual_happenings, expected_happenings)
+
+        # Events
+        actual_events = collect_events(self.options, actual_happenings)
+        expected_events = [
+            Event(starttime=str_to_datetime("2000-01-01 00:00:00"),
+                  stoptime=str_to_datetime("2000-01-01 00:10:00"),
+                  activity='mywork',
+                  timelen=10),
+            Event(starttime=str_to_datetime("2000-01-01 00:10:00"),
+                  stoptime=str_to_datetime("2000-01-01 00:20:00"),
+                  activity='myotherwork',
+                  timelen=10)]
+        self.assertEqual(actual_events, expected_events)
+
+        # Activities
+        actual_activities = collect_activities(self.options, actual_events)
+
+        # Targets
+        actual_targets = collect_targets(self.options,
+                                         actual_happenings,
+                                         actual_activities)
+        expected_targets = {'mywork': {'target_timelen': 5,
+                                       'actual_timelen': 10}}
+        self.assertEqual(actual_targets, expected_targets)
+
+
+
+    def test_ongoing_activity(self):
+
+        # Actionfile
+        fd, filename = tempfile.mkstemp()
+        self.tempfile = filename
+        os.write(fd, '''
+[2000-01-01 00:00:00] mywork
+''')
+        os.close(fd)
+
+        # Actions
+        actual_actions = parse_actionfile(filename)
+        expected_actions = [
+            Action(datetime=str_to_datetime("2000-01-01 00:00:00"),
+                   text='mywork', type='start',
+                   activity='mywork')]
+        self.assertEqual(actual_actions, expected_actions)
+
+        # Happenings
+        now = datetime.datetime(2000, 1, 1, 0, 5, 0)
+        actual_happenings = collect_happenings(self.options,
+                                               actual_actions, now=now)
+        expected_happenings = [
+            Event(starttime=str_to_datetime("2000-01-01 00:00:00"),
+                  stoptime=str_to_datetime("2000-01-01 00:05:00"),
+                  activity='mywork',
+                  timelen=5, ongoing=True)]
+        self.assertEqual(actual_happenings, expected_happenings)
+
+        # Events
+        actual_events = collect_events(self.options, actual_happenings)
+        expected_events = expected_happenings
+        self.assertEqual(actual_events, expected_events)
+
+
+if __name__ == '__main__':
+    main()
