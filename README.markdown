@@ -254,15 +254,17 @@ First let's get some terminology out of the way:
   1. Working 30:04 minutes on `mywork`.
   2. Working 10 minutes on `myotherwork`.
 
-As you see, all lines in the action file describe an action, and they
-must follow the same format: a date (in the format above) and an
-action text.
+As you see, all **lines** in the action file describe an action, and
+they must follow the same format: a date (in the format above) and an
+action text:
+
+    [YYYY-mm-dd HH:MM:SS] ACTION_TEXT
 
 The only exceptions to this rule are that an action files may contain
 empty lines and comment lines (which start with hash mark), but these
 are ignored by Timestat.
 
-The action text may have the following formats:
+The **action text** may have the following formats:
 
 - **Start action**, which means that an activity is started (and if
   there is any other ongoing activity, that is finished):
@@ -298,9 +300,8 @@ The action text may have the following formats:
 
   where `ACTIVITY` may not contain whitespace. Examples:
 
-        mywork
-        work/task1
-        hobby/english/Catch22
+        increase-target mywork 8:00
+        increase-target work/task1 90
 
 Bashrc
 ------
