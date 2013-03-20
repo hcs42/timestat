@@ -37,12 +37,12 @@ import sys
 ##### Helper functions: date and time #####
 
 
-def timedelta_to_mins(td):
-    return int(td.total_seconds() / 60)
+def timedelta_to_seconds(td):
+    return td.total_seconds()
 
 
-def mins_to_timedelta(mins):
-    return datetime.timedelta(seconds = mins * 60)
+def seconds_to_timedelta(seconds):
+    return datetime.timedelta(seconds)
 
 
 def str_to_date(s):
@@ -62,15 +62,19 @@ def datetime_to_str(dt):
     return dt.strftime('%Y-%m-%d %H:%M:%S')
 
 
-def hhmm_to_mins(s):
+def hhmm_to_seconds(s):
     r = re.match('^(?:(\d+):)?(\d+)$', s)
     hours = int(r.group(1)) if r.group(1) is not None else 0
     minutes = int(r.group(2))
     return hours * 60 + minutes
 
 
-def mins_to_hhmm(i):
-    return '%02d:%02d' % (i / 60, i % 60)
+def seconds_to_hhmm(seconds, show_seconds=False):
+    minutes = seconds / 60
+    if show_seconds:
+        return '%02d:%02d:%02d' % (minutes / 60, minutes % 60, seconds % 60)
+    else:
+        return '%02d:%02d' % (minutes / 60, minutes % 60)
 
 
 def get_now():
@@ -170,7 +174,7 @@ class Action(Happening):
     # - text
     # - type: start | stop | interval | target
     # - activity
-    # - timelen (minutes; only if type is 'interval' or 'target')
+    # - timelen (seconds; only if type is 'interval' or 'target')
 
     fields = ('datetime', 'text', 'type', 'activity', 'timelen')
 
@@ -218,10 +222,10 @@ class Action(Happening):
         elif r.match('^increase-target ([^ ]+) ((?:\d|:)+)$', self.text):
             self.type = 'target'
             self.activity = r.group(1)
-            self.timelen = hhmm_to_mins(r.group(2))
+            self.timelen = hhmm_to_seconds(r.group(2))
         elif r.match('^((?:\d|:)+) ([^ ]+)$', self.text):
             self.type = 'interval'
-            self.timelen = hhmm_to_mins(r.group(1))
+            self.timelen = hhmm_to_seconds(r.group(1))
             self.activity = r.group(2)
         else:
             print 'WARNING: Incorrect line:', text
@@ -342,7 +346,7 @@ def collect_happenings(options, actions, now=None):
                           starttime=starttime,
                           timelen=timelen)
             if timelen is not None:
-                event.stoptime = event.starttime + mins_to_timedelta(timelen)
+                event.stoptime = event.starttime + seconds_to_timedelta(timelen)
             else:
                 event.ongoing = True
             happenings.append(event)
@@ -364,7 +368,7 @@ def collect_happenings(options, actions, now=None):
         if last_event.ongoing:
             last_event.stoptime = stoptime
             last_event.timelen = \
-                timedelta_to_mins(stoptime - last_event.starttime)
+                timedelta_to_seconds(stoptime - last_event.starttime)
             if not ongoing:
                 last_event.ongoing = False
 
@@ -461,10 +465,12 @@ def show_status(options):
 
         if event.ongoing:
             print 'Current time:', event.stoptime.strftime('%H:%M')
-            print 'Time since started:', mins_to_hhmm(event.timelen)
+            print 'Time since started:', \
+                   seconds_to_hhmm(event.timelen, options.seconds)
         else:
             print 'Stop time:', event.stoptime.strftime('%H:%M')
-            print 'Time length:', mins_to_hhmm(event.timelen)
+            print 'Time length:', \
+                  seconds_to_hhmm(event.timelen, options.seconds)
 
 
 def show_targets(options):
@@ -473,10 +479,12 @@ def show_targets(options):
     for target_name, target_result in targets.items():
         target_timelen = target_result['target_timelen']
         actual_timelen = target_result['actual_timelen']
+        def show(timelen):
+            return seconds_to_hhmm(timelen, options.seconds)
         print 'Target name:', target_name
-        print 'Target time:', mins_to_hhmm(target_timelen)
-        print 'Actual time:', mins_to_hhmm(actual_timelen)
-        print 'Difference:', mins_to_hhmm(actual_timelen - target_timelen)
+        print 'Target time:', show(target_timelen)
+        print 'Actual time:', show(actual_timelen)
+        print 'Difference:',  show(actual_timelen - target_timelen)
         print
 
 
@@ -494,12 +502,12 @@ def show(options):
 
         elif options.sum:
             time_sum = sum(activities.values())
-            time_sum = mins_to_hhmm(time_sum)
+            time_sum = seconds_to_hhmm(time_sum, options.seconds)
             print time_sum
         else:
             d2 = {}
             for key, value in activities.items():
-                d2[key] = mins_to_hhmm(value)
+                d2[key] = seconds_to_hhmm(value, options.seconds)
             for key, value in sorted(d2.items()):
                 print '%s: %s' % (key, value)
 
@@ -605,6 +613,9 @@ Read manual.markdown more information.''', version = '%prog 2.0')
     parser.add_option('-c', '--current', dest='current',
                       action='store_true', default=False,
                       help='Display the name of ongoing task, if any.')
+    parser.add_option('--seconds', dest='seconds',
+                      action='store_true', default=False,
+                      help='Show seconds')
 
     # "add" and "edit" options
     parser.add_option('--actionfile', dest='actionfile',
@@ -737,19 +748,19 @@ class TestTimestat(unittest.TestCase):
 
     def test_hhmm_to_mins(self):
 
-        self.assertEqual(hhmm_to_mins('0'), 0)
-        self.assertEqual(hhmm_to_mins('1'), 1)
-        self.assertEqual(hhmm_to_mins('100'), 100)
+        self.assertEqual(hhmm_to_seconds('0'), 0)
+        self.assertEqual(hhmm_to_seconds('1'), 60)
+        self.assertEqual(hhmm_to_seconds('100'), 60 * 100)
 
-        self.assertEqual(hhmm_to_mins('00:00'), 0)
-        self.assertEqual(hhmm_to_mins('1:40'), 100)
-        self.assertEqual(hhmm_to_mins('120:10'), 7210)
+        self.assertEqual(hhmm_to_seconds('00:00'), 0)
+        self.assertEqual(hhmm_to_seconds('1:40'), 60 * 100)
+        self.assertEqual(hhmm_to_seconds('120:10'), 60 * 7210)
 
     def test_mins_to_hhmm(self):
-        self.assertEqual(mins_to_hhmm(0), '00:00')
-        self.assertEqual(mins_to_hhmm(1), '00:01')
-        self.assertEqual(mins_to_hhmm(100), '01:40')
-        self.assertEqual(mins_to_hhmm(7210), '120:10')
+        self.assertEqual(seconds_to_hhmm(60 * 0), '00:00')
+        self.assertEqual(seconds_to_hhmm(60 * 1), '00:01')
+        self.assertEqual(seconds_to_hhmm(60 * 100), '01:40')
+        self.assertEqual(seconds_to_hhmm(60 * 7210), '120:10')
 
 
     def test_get_categories(self):

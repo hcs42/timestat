@@ -203,6 +203,7 @@ Options:
   be separated with a colon.
 - `-c, --current`: Display the name of ongoing task, if any, and the
   time since the last action.
+- `--seconds`: Display the seconds in the printed intervals.
 
 Examples:
 
