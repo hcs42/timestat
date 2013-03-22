@@ -517,7 +517,8 @@ def show(options):
         if options.current:
             if len(events) > 0 and events[-1].ongoing:
                 event = events[-1]
-                print '%s:%d' % (event.activity, event.timelen)
+                print '%s: %s' % (event.activity,
+                                 seconds_to_hhmm(event.timelen))
 
         else:
             if not options.sum:
