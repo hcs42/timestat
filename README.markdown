@@ -199,7 +199,8 @@ Options:
 - `--since DATE`: Work with actions since this date. (Format: see
   below.)
 - `--until DATE`: Work with actions until this date. (Format: see
-  below.)
+  below.) The default value is `today`, which has the advantage that
+  future targets are not yet taken into account.
 - `--day DATE`: Work with actions on this date. (Format: see below.)
   `--day DATE` is equivalent to `--since DATE --until DATE`.
 - `-w, --weekly-sum`: Print a weekly summary.

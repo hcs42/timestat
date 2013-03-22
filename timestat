@@ -618,7 +618,7 @@ Read manual.markdown more information.''', version = '%prog 2.0')
     # "show" options
     parser.add_option('--since', dest='since',
                       help='Work with actions since this date.')
-    parser.add_option('--until', dest='until',
+    parser.add_option('--until', dest='until', default='today',
                       help='Work with actions until this date.')
     parser.add_option('--day', dest='day',
                       help='Work with actions on this date.')
@@ -647,8 +647,9 @@ Read manual.markdown more information.''', version = '%prog 2.0')
     # Prepare: since and until
     if options.since is not None:
         options.since = str_to_date(options.since)
-    if options.until is not None:
-        options.until = str_to_date(options.until)
+
+    options.until = str_to_date(options.until)
+
     if options.day is not None:
         options.since = str_to_date(options.day)
         options.until = str_to_date(options.day)
