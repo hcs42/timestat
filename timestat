@@ -66,7 +66,7 @@ def hhmm_to_seconds(s):
     r = re.match('^(?:(\d+):)?(\d+)$', s)
     hours = int(r.group(1)) if r.group(1) is not None else 0
     minutes = int(r.group(2))
-    return hours * 60 + minutes
+    return (hours * 60 + minutes) * 60
 
 
 def seconds_to_hhmm(seconds, show_seconds=False):
@@ -243,7 +243,7 @@ class Event(Happening):
     # - starttime
     # - stoptime
     # - activity
-    # - timelen (minutes)
+    # - timelen (seconds)
     # - ongoing
 
     fields = ('starttime', 'stoptime', 'activity', 'timelen', 'ongoing')
@@ -794,7 +794,7 @@ class TestTimestat(unittest.TestCase):
                    activity='myotherwork'),
             Action(datetime=str_to_datetime("2000-01-01 00:12:00"),
                    text='increase-target mywork 5', type='target',
-                   activity='mywork', timelen=5),
+                   activity='mywork', timelen=60 * 5),
             Action(datetime=str_to_datetime("2000-01-01 00:20:00"),
                    text='stop', type='stop')]
         self.assertEqual(actual_actions, expected_actions)
@@ -805,14 +805,14 @@ class TestTimestat(unittest.TestCase):
             Event(starttime=str_to_datetime("2000-01-01 00:00:00"),
                   stoptime=str_to_datetime("2000-01-01 00:10:00"),
                   activity='mywork',
-                  timelen=10),
+                  timelen=60 * 10),
             Event(starttime=str_to_datetime("2000-01-01 00:10:00"),
                   stoptime=str_to_datetime("2000-01-01 00:20:00"),
                   activity='myotherwork',
-                  timelen=10),
+                  timelen=60 * 10),
             Action(datetime=str_to_datetime("2000-01-01 00:12:00"),
                    text='increase-target mywork 5', type='target',
-                   activity='mywork', timelen=5)]
+                   activity='mywork', timelen=60 * 5)]
         self.assertEqual(actual_happenings, expected_happenings)
 
         # Events
@@ -821,11 +821,11 @@ class TestTimestat(unittest.TestCase):
             Event(starttime=str_to_datetime("2000-01-01 00:00:00"),
                   stoptime=str_to_datetime("2000-01-01 00:10:00"),
                   activity='mywork',
-                  timelen=10),
+                  timelen=60 * 10),
             Event(starttime=str_to_datetime("2000-01-01 00:10:00"),
                   stoptime=str_to_datetime("2000-01-01 00:20:00"),
                   activity='myotherwork',
-                  timelen=10)]
+                  timelen=60 * 10)]
         self.assertEqual(actual_events, expected_events)
 
         # Activities
@@ -835,8 +835,8 @@ class TestTimestat(unittest.TestCase):
         actual_targets = collect_targets(self.options,
                                          actual_happenings,
                                          actual_activities)
-        expected_targets = {'mywork': {'target_timelen': 5,
-                                       'actual_timelen': 10}}
+        expected_targets = {'mywork': {'target_timelen': 60 * 5,
+                                       'actual_timelen': 60 * 10}}
         self.assertEqual(actual_targets, expected_targets)
 
 
@@ -867,7 +867,7 @@ class TestTimestat(unittest.TestCase):
             Event(starttime=str_to_datetime("2000-01-01 00:00:00"),
                   stoptime=str_to_datetime("2000-01-01 00:05:00"),
                   activity='mywork',
-                  timelen=5, ongoing=True)]
+                  timelen=60 * 5, ongoing=True)]
         self.assertEqual(actual_happenings, expected_happenings)
 
         # Events
