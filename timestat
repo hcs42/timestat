@@ -618,7 +618,7 @@ Read manual.markdown more information.''', version = '%prog 2.0')
                       help='Show seconds')
 
     # "add" and "edit" options
-    parser.add_option('--actionfile', dest='actionfile',
+    parser.add_option('-a', '--actionfile', dest='actionfile',
                       help='Specify which action file to use.')
 
     options, args = parser.parse_args()

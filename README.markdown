@@ -90,10 +90,10 @@ Options:
 - `-f ACTIONFILES, --actionfiles ACTIONFILES`: Action files to be used,
   separated with a colon. If not specified, the `ACTIONFILES` environmental
   variable is used.
-- `--actionfile ACTIONFILE_SUBSTR`: If `--actionfile` is specified, then
-  `ACTION` will be added to the action file whose name contains
-  `ACTIONFILE_SUBSTR`. If `--actionfile` is not specified, the first action
-  file will be used.
+- `-a ACTIONFILE_SUBSTR, --actionfile ACTIONFILE_SUBSTR`: If
+  `--actionfile` is specified, then `ACTION` will be added to the
+  action file whose name contains `ACTIONFILE_SUBSTR`. If
+  `--actionfile` is not specified, the first action file will be used.
 
 Examples:
 
@@ -130,10 +130,10 @@ Options:
 - `-f ACTIONFILES, --actionfiles ACTIONFILES`: Action files to be used,
   separated with a colon. If not specified, the `ACTIONFILES` environmental
   variable is used.
-- `--actionfile ACTIONFILE_SUBSTR`: If `--actionfile` is specified, then
-  `ACTION` will be added to the action file whose name contains
-  `ACTIONFILE_SUBSTR`. If `--actionfile` is not specified, the first action
-  file will be used.
+- `-a ACTIONFILE_SUBSTR, --actionfile ACTIONFILE_SUBSTR`: If
+  `--actionfile` is specified, then `ACTION` will be added to the
+  action file whose name contains `ACTIONFILE_SUBSTR`. If
+  `--actionfile` is not specified, the first action file will be used.
 
 Examples: see the [Quick demo](#quick-demo) above.
 
@@ -151,9 +151,10 @@ Options:
 - `-f ACTIONFILES, --actionfiles ACTIONFILES`: Action files to be used,
   separated with a colon. If not specified, the `ACTIONFILES` environmental
   variable is used.
-- `--actionfile ACTIONFILE`: Specify which action file to open in the editor.
-  If not specified, the first action file will be opened. If `--actionfile` is
-  `"ALL"`, then all files will be opened.
+- `-a ACTIONFILE_SUBSTR, --actionfile ACTIONFILE`: Specify which
+  action file to open in the editor. If not specified, the first
+  action file will be opened. If `--actionfile` is `"ALL"`, then all
+  files will be opened.
 
 ### list: list all action files
 
