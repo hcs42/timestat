@@ -12,9 +12,6 @@
     - easy renaming for the items in the hierarchy
     - warning when a new task is created
 - review statistics, nicer outputs, aggregated week information
-- dates
-    - date: today, yesterday, etc.
-    - --today, --thisweek?
 - comments:
     - [...] mywork # fixing bug 23 -- do I want this?
 - normalization:
