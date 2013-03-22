@@ -519,16 +519,17 @@ def show(options):
                 event = events[-1]
                 print '%s:%d' % (event.activity, event.timelen)
 
-        elif options.sum:
-            time_sum = sum(activities.values())
-            time_sum = seconds_to_hhmm(time_sum, options.seconds)
-            print time_sum
         else:
-            d2 = {}
-            for key, value in activities.items():
-                d2[key] = seconds_to_hhmm(value, options.seconds)
-            for key, value in sorted(d2.items()):
-                print '%s: %s' % (key, value)
+            if not options.sum:
+                d2 = {}
+                for key, value in activities.items():
+                    d2[key] = seconds_to_hhmm(value)
+                for key, value in sorted(d2.items()):
+                    print '%s: %s' % (key, value)
+
+            time_sum = sum(activities.values())
+            time_sum = seconds_to_hhmm(time_sum)
+            print 'Sum:', time_sum
 
 
 def add(options, action):
