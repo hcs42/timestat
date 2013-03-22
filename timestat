@@ -539,7 +539,11 @@ def add(options, action):
     dt = get_now()
     actionfile_name = options.actionfile
     with open(actionfile_name, 'a') as f:
-        f.write('[%s] %s\n' % (datetime_to_str(dt), action))
+        text = '[%s] %s' % (datetime_to_str(dt), action)
+        f.write(text)
+        f.write('\n')
+        if options.verbose:
+            print actionfile_name, 'extended with:', text
 
 
 def edit(options):
@@ -614,6 +618,9 @@ Read manual.markdown more information.''', version = '%prog 2.0')
     # Common options
     parser.add_option('-f', '--actionfiles', dest='actionfiles',
                       help='Action files, separated with colon')
+    parser.add_option('-v', '--verbose', dest='verbose',
+                      action='store_true', default=False,
+                      help='Verbose printout')
 
     # "show" options
     parser.add_option('--since', dest='since',

@@ -75,6 +75,10 @@ Timestat is a command line tool, and its general syntax is the following:
 
     timestat [options] [COMMAND [PARAMETERS]]
 
+### Common options
+
+- `-v, --verbose`: Display verbose printouts.
+
 ### add: add an action to the action file
 
 Usage:
