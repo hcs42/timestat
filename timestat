@@ -527,7 +527,7 @@ def edit(options):
     if options.actionfile == 'ALL':
         actionfile_names = options.actionfiles
     else:
-        actionfile_names = [options.actionfiles[0]]
+        actionfile_names = [options.actionfile]
     editor = os.getenv('EDITOR', 'vi')
     editor_list = editor_to_editor_list(editor)
     subprocess.call(editor_list + actionfile_names)
