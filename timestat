@@ -601,6 +601,8 @@ Read manual.markdown more information.''', version = '%prog 2.0')
                       help='Work with actions since this date.')
     parser.add_option('--until', dest='until',
                       help='Work with actions until this date.')
+    parser.add_option('--day', dest='day',
+                      help='Work with actions on this date.')
     parser.add_option('-w', '--weekly-sum', dest='weekly_sum',
                       action='store_true', default=False,
                       help='Print a weekly summary.')
@@ -628,6 +630,9 @@ Read manual.markdown more information.''', version = '%prog 2.0')
         options.since = str_to_date(options.since)
     if options.until is not None:
         options.until = str_to_date(options.until)
+    if options.day is not None:
+        options.since = str_to_date(options.day)
+        options.until = str_to_date(options.day)
 
     # Prepare: ignored_activities
     options.ignored_activities = \

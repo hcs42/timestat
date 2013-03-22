@@ -198,6 +198,8 @@ Options:
   variable is used.
 - `--since DATE`: Work with actions since this date. (Format: yyyy-mm-dd)
 - `--until DATE`: Work with actions until this date. (Format: yyyy-mm-dd)
+- `--day DATE`: Work with actions on this date. (Format: yyyy-mm-dd.)
+  `--day DATE` is equivalent to `--since DATE --until DATE`.
 - `-w, --weekly-sum`: Print a weekly summary.
 - `-s, --sum`: Print only the sum of the activity time.
 - `-i, --ignore-activities`: Ignore the given activities. The activities should
