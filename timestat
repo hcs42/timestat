@@ -88,12 +88,20 @@ def hhmm_to_seconds(s):
     return (hours * 60 + minutes) * 60
 
 
-def seconds_to_hhmm(seconds, show_seconds=False):
+def seconds_to_hhmm(seconds, show_seconds=False, negative=False):
+    if seconds < 0:
+        return seconds_to_hhmm(-seconds, show_seconds, True)
+
     minutes = seconds / 60
     if show_seconds:
-        return '%02d:%02d:%02d' % (minutes / 60, minutes % 60, seconds % 60)
+        hhmm = '%02d:%02d:%02d' % (minutes / 60, minutes % 60, seconds % 60)
     else:
-        return '%02d:%02d' % (minutes / 60, minutes % 60)
+        hhmm = '%02d:%02d' % (minutes / 60, minutes % 60)
+
+    if negative:
+        hhmm = '-' + hhmm
+
+    return hhmm
 
 
 def get_now():
@@ -438,11 +446,10 @@ def collect_targets(options, happenings, activities):
             targets[happening.activity]['target_timelen'] += happening.timelen
 
     # Collect work
-    for activity, mins in activities.items():
+    for activity, seconds in activities.items():
         for category in get_categories(activity):
             if category in targets:
-                targets[category]['actual_timelen'] += mins
-
+                targets[category]['actual_timelen'] += seconds
     return targets
 
 
@@ -795,6 +802,10 @@ class TestTimestat(unittest.TestCase):
         self.assertEqual(seconds_to_hhmm(60 * 1), '00:01')
         self.assertEqual(seconds_to_hhmm(60 * 100), '01:40')
         self.assertEqual(seconds_to_hhmm(60 * 7210), '120:10')
+
+        self.assertEqual(seconds_to_hhmm(- 60 * 1), '-00:01')
+        self.assertEqual(seconds_to_hhmm(- 60 * 100), '-01:40')
+        self.assertEqual(seconds_to_hhmm(- 60 * 7210), '-120:10')
 
 
     def test_get_categories(self):
