@@ -196,9 +196,11 @@ Options:
 - `-f ACTIONFILES, --actionfiles ACTIONFILES`: Action files to be used,
   separated with a colon. If not specified, the `ACTIONFILES` environmental
   variable is used.
-- `--since DATE`: Work with actions since this date. (Format: yyyy-mm-dd)
-- `--until DATE`: Work with actions until this date. (Format: yyyy-mm-dd)
-- `--day DATE`: Work with actions on this date. (Format: yyyy-mm-dd.)
+- `--since DATE`: Work with actions since this date. (Format: see
+  below.)
+- `--until DATE`: Work with actions until this date. (Format: see
+  below.)
+- `--day DATE`: Work with actions on this date. (Format: see below.)
   `--day DATE` is equivalent to `--since DATE --until DATE`.
 - `-w, --weekly-sum`: Print a weekly summary.
 - `-s, --sum`: Print only the sum of the activity time.
@@ -207,6 +209,15 @@ Options:
 - `-c, --current`: Display the name of ongoing task, if any, and the
   time since the last action.
 - `--seconds`: Display the seconds in the printed intervals.
+
+Date formats:
+
+- `today`
+- `yesterday`
+- `yyyy-mm-dd`
+- `mm-dd`: Given day in the current year. (Be careful with it in
+  January, since `12-xx` means the end of the current year, not last
+  year.)
 
 Examples:
 

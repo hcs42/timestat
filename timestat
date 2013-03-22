@@ -46,12 +46,31 @@ def seconds_to_timedelta(seconds):
 
 
 def str_to_date(s):
-    r = re.match('(\d\d\d\d)-(\d\d)-(\d\d)', s)
-    return \
-        datetime.date(
-            int(r.group(1)),
-            int(r.group(2)),
-            int(r.group(3)))
+
+    if s == 'today':
+        return datetime.date.today()
+    
+    if s == 'yesterday':
+        return datetime.date.today() - datetime.timedelta(days=1)
+
+    r = re.match('^(\d\d\d\d)-(\d\d)-(\d\d)$', s)
+    if r:
+        return datetime.date(
+                   int(r.group(1)),
+                   int(r.group(2)),
+                   int(r.group(3)))
+
+    year = datetime.date.today().year
+    r = re.match('^(\d\d)-(\d\d)$', s)
+    if r:
+        return datetime.date(
+                   year,
+                   int(r.group(1)),
+                   int(r.group(2)))
+
+
+    print 'Not a valid date:', s
+    sys.exit(1)
 
 
 def str_to_datetime(s):
