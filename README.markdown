@@ -15,7 +15,9 @@ Let's have a look at a quick demo of Timestat:
     $ timestat add myotherwork     # 20 minutes later, started to work on
                                    # 'myotherwork'
 
-    $ timestat add stop            # Another 20 minutes later, stopped working
+    $ timestat add mywork          # Another 20 minutes later, back to 'mywork'
+
+    $ timestat add stop            # 5 minutes later, stopped working
 
     $ timestat add myotherwork     # Some myotherwork again
 
@@ -27,45 +29,49 @@ Let's have a look at a quick demo of Timestat:
     $ cat $HOME/myactionfile
     [2009-07-25 20:00:00] mywork
     [2009-07-25 20:20:00] myotherwork
-    [2009-07-25 20:40:00] stop
-    [2009-07-25 20:50:00] myotherwork
-    [2009-07-25 21:00:00] stop
-    [2009-07-25 22:00:00] 10 myotherwork
+    [2009-07-25 20:40:00] mywork
+    [2009-07-25 20:45:00] stop
+    [2009-07-25 20:55:00] myotherwork
+    [2009-07-25 21:05:00] stop
+    [2009-07-25 22:05:00] 10 myotherwork
 
     $ ./timestat show
-    mywork: 20
+    mywork: 25
     myotherwork: 40
 
 The same steps, assuming you have the [bashrc configuration](#bashrc)
-described below:
+described below (the `tq` alias switches to the previous state):
 
-    $ TQ mywork             # Started to work on 'mywork'
+    $ tq mywork             # Started to work on 'mywork'
 
-    $ TQ myotherwork        # 20 minutes later, started to work on
+    $ tq myotherwork        # 20 minutes later, started to work on
                             # 'myotherwork'
 
-    $ TQ                    # Another 20 minutes later, stopped working
-    "myotherwork" activity stopped
-
-    $ TQ                    # Some myotherwork again
+    $ tq                    # Another 20 minutes later, back to 'mywork'
     "myotherwork" activity resumed
 
-    $ TQ                    # 10 minutes later, myotherwork stopped again
+    $ tq stop               # 5 minutes later, stopped working
+
+    $ tq                    # Some myotherwork again
+    "myotherwork" activity resumed
+
+    $ tq                    # 10 minutes later, myotherwork stopped again
     "myotherwork" activity stopped
 
-    $ T add 10 myotherwork  # Adding 10 minutes to 'myotherwork'
+    $ ts add 10 myotherwork  # Adding 10 minutes to 'myotherwork'
                             # that we did while not at the computer
 
     $ cat $HOME/myactionfile
     [2009-07-25 20:00:00] mywork
     [2009-07-25 20:20:00] myotherwork
-    [2009-07-25 20:40:00] stop
-    [2009-07-25 20:50:00] myotherwork
-    [2009-07-25 21:00:00] stop
-    [2009-07-25 22:00:00] 10 myotherwork
+    [2009-07-25 20:40:00] mywork
+    [2009-07-25 20:45:00] stop
+    [2009-07-25 20:55:00] myotherwork
+    [2009-07-25 21:05:00] stop
+    [2009-07-25 22:05:00] 10 myotherwork
 
-    $ T
-    mywork: 20
+    $ ./timestat show
+    mywork: 25
     myotherwork: 40
 
 Command-line commands and options
@@ -333,8 +339,8 @@ Bashrc
 The following lines are handy in `.bashrc` or `.bash_profile`:
 
     export ACTIONFILES=.../myactionfile # List of action files
-    alias T=.../timestat                # timestat alias
-    alias TQ=".../timestat quickadd"    # timestat alias
+    alias ts=.../timestat                # timestat alias
+    alias tq=".../timestat quickadd"    # timestat alias
 
 If you use multiple machines, it is convenient to use a separate
 action file for each one, since this way you will have have merge

@@ -49,7 +49,7 @@ def str_to_date(s):
 
     if s == 'today':
         return datetime.date.today()
-    
+
     if s == 'yesterday':
         return datetime.date.today() - datetime.timedelta(days=1)
 
@@ -231,7 +231,7 @@ class Action(Happening):
 
     def is_action(self):
         return True
-    
+
     def get_action_file(self):
         return self.source[0]
 
@@ -580,46 +580,38 @@ def list_actionfiles(options):
 
 def quickadd(options, args):
 
-    if options.actionfile == 'ALL':
-        print 'Error: Action file "ALL" is not accepted by "quickadd".'
-        sys.exit(1)
-
     # If we have a parameter, just pass it to "add"
     if len(args) >= 1:
         add(options, ' '.join(args))
         return
 
     # If we don't have a parameter...
-    actions = parse_actionfile(options.actionfile)
-    i = len(actions) - 1
-    state = 'initial'
+    actions, happenings, events, activities = collect_everything(options)
 
-    while i >= 0:
-        action = actions[i]
-
-        # If the last effective action was a 'stop', quickadd should resume the
-        # previous 'start' or 'interval' action
-        if state == 'initial' and action.type == 'stop':
-            state = 'looking_for_start'
-
-        elif (state == 'looking_for_start' and
-              action.type in ('start', 'interval')):
-            add(options, action.activity)
-            print '"%s" activity resumed' % (action.activity,)
-            break
-
-        # If the last effective action was a 'start', quickadd should stop that
-        # action
-        elif state == 'initial' and action.type in ('start', 'interval'):
-            add(options, 'stop')
-            print '"%s" activity stopped' % (action.activity,)
-            break
-
-        i -= 1
-
-    else:
-        print 'ERROR: Action file does not contain any effective action!'
+    # If there are no events, we don't know what to do
+    if len(events) == 0:
+        print 'ERROR: Action file does not contain any event!'
         sys.exit(1)
+
+    # If the last event is not ongoing, let's resume it
+    elif not events[-1].ongoing:
+        add(options, events[-1].activity)
+        print '"%s" activity resumed' % (events[-1].activity,)
+
+    # If the last event is ongoing, let's examine what we were doing at the
+    # moment when this last event was started!
+    #
+    # If we had already been doing something, let's resume that activity.
+    elif (len(events) > 1) and (events[-2].stoptime == events[-1].starttime):
+        add(options, events[-2].activity)
+        print '"%s" activity resumed, "%s" activity stopped' % \
+              (events[-2].activity, events[-1].activity)
+
+    # Otherwise let's stop (i.e. resume the 'stopped' state that we had before
+    # the current activity.).
+    else:
+        add(options, 'stop')
+        print '"%s" activity stopped' % events[-1].activity
 
 
 ##### Option and command parsing #####
@@ -896,7 +888,6 @@ class TestTimestat(unittest.TestCase):
         expected_targets = {'mywork': {'target_timelen': 60 * 5,
                                        'actual_timelen': 60 * 10}}
         self.assertEqual(actual_targets, expected_targets)
-
 
 
     def test_ongoing_activity(self):
