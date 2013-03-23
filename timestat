@@ -241,7 +241,7 @@ class Action(Happening):
         else:
             return self.datetime < other.datetime
 
-    def calc(self, lnum):
+    def calc(self):
         r = ReMatch()
         if self.text == '':
             return False
@@ -668,6 +668,9 @@ Read manual.markdown more information.''', version = '%prog 2.0')
 
     options, args = parser.parse_args()
 
+    if len(args) > 0 and args[0] == 'test':
+        return options, args
+
     # Prepare: since and until
     if options.since is not None:
         options.since = str_to_date(options.since)
@@ -790,6 +793,7 @@ class TestTimestat(unittest.TestCase):
             pass
         self.options = Options()
         self.options.ignored_activities = []
+        self.maxDiff = 2000
 
     def tearDown(self):
         if self.tmpfile != '':
@@ -841,15 +845,15 @@ class TestTimestat(unittest.TestCase):
         expected_actions = [
             Action(datetime=str_to_datetime("2000-01-01 00:00:00"),
                    text='mywork', type='start',
-                   activity='mywork'),
+                   activity='mywork', source=(filename, 1)),
             Action(datetime=str_to_datetime("2000-01-01 00:10:00"),
                    text='myotherwork', type='start',
-                   activity='myotherwork'),
+                   activity='myotherwork', source=(filename, 4)),
             Action(datetime=str_to_datetime("2000-01-01 00:12:00"),
                    text='increase-target mywork 5', type='target',
-                   activity='mywork', timelen=60 * 5),
+                   activity='mywork', timelen=60 * 5, source=(filename, 5)),
             Action(datetime=str_to_datetime("2000-01-01 00:20:00"),
-                   text='stop', type='stop')]
+                   text='stop', type='stop', source=(filename, 6))]
         self.assertEqual(actual_actions, expected_actions)
 
         # Happenings
@@ -865,7 +869,8 @@ class TestTimestat(unittest.TestCase):
                   timelen=60 * 10),
             Action(datetime=str_to_datetime("2000-01-01 00:12:00"),
                    text='increase-target mywork 5', type='target',
-                   activity='mywork', timelen=60 * 5)]
+                   activity='mywork', timelen=60 * 5,
+                   source=(filename, 5))]
         self.assertEqual(actual_happenings, expected_happenings)
 
         # Events
@@ -909,7 +914,7 @@ class TestTimestat(unittest.TestCase):
         expected_actions = [
             Action(datetime=str_to_datetime("2000-01-01 00:00:00"),
                    text='mywork', type='start',
-                   activity='mywork')]
+                   activity='mywork', source=(filename, 1))]
         self.assertEqual(actual_actions, expected_actions)
 
         # Happenings
