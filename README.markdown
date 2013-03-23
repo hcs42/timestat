@@ -323,6 +323,8 @@ The **action text** may have the following formats:
         increase-target mywork 8:00
         increase-target work/task1 90
 
+The action files do not have to be sorted.
+
 Bashrc
 ------
 
