@@ -202,8 +202,9 @@ class Action(Happening):
     # - type: start | stop | interval | target
     # - activity
     # - timelen (seconds; only if type is 'interval' or 'target')
+    # - source (source[0] = actionfile, source[1] = line number)
 
-    fields = ('datetime', 'text', 'type', 'activity', 'timelen')
+    fields = ('datetime', 'text', 'type', 'activity', 'timelen', 'source')
 
     def __init__(self, **kwargs):
         for field in Action.fields:
@@ -230,6 +231,9 @@ class Action(Happening):
 
     def is_action(self):
         return True
+    
+    def get_action_file(self):
+        return self.source[0]
 
     def __lt__(self, other):
         if self.type == 'interval':
@@ -255,7 +259,8 @@ class Action(Happening):
             self.timelen = hhmm_to_seconds(r.group(1))
             self.activity = r.group(2)
         else:
-            print 'WARNING: Incorrect action in file %s line %s:' % env, text
+            print 'WARNING: Incorrect action in file %s line %s:' % \
+                  self.source, text
             return False
         return True
 
@@ -307,11 +312,11 @@ class Event(Happening):
 ##### Action file handling #####
 
 
-def process_actionfile_line(dt, text, actions, env):
-    action = Action()
-    action.datetime = dt
-    action.text = text
-    add = action.calc(env)
+def process_actionfile_line(dt, text, actions, source):
+    action = Action(datetime = dt,
+                    text = text,
+                    source = source)
+    add = action.calc()
     if add:
         actions.append(action)
 
@@ -322,7 +327,7 @@ def parse_actionfile(filename):
         #for line_number, line in enumerate(f):
         #    line_number += 1
         for lnum, line in enumerate(f):
-            env = (filename, lnum)
+            source = (filename, lnum)
             line = line.strip()
             if line != '' and line[0] != '#':
                 try:
@@ -343,10 +348,11 @@ def parse_actionfile(filename):
                              int(r.group('hour')),
                              int(r.group('minute')),
                              int(r.group('second')))
-                    process_actionfile_line(dt, r.group('text'), actions, env)
+                    process_actionfile_line(dt, r.group('text'), actions,
+                                            source)
                 except Exception, e:
                     print 'WARNING: Incorrect line in file %s line %s:' %\
-                          env, line
+                          source, line
                     print e
     return actions
 
