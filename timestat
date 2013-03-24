@@ -311,8 +311,14 @@ class Event(Happening):
 
 ##### Action file handling #####
 
+def split_comment(text):
+    r = re.match(r'^(.*?)(?:|\s+#\s*(.*))$', text)
+    text = r.group(1).strip()
+    comment = r.group(2) if r.group(2) is not None else ''
+    return text, comment
 
 def process_actionfile_line(dt, text, actions, source):
+    text, comment = split_comment(text)
     action = Action(datetime = dt,
                     text = text,
                     source = source)
@@ -337,7 +343,7 @@ def parse_actionfile(filename):
                             r'(?P<day>\d\d) '
                             r'(?P<hour>\d\d):'
                             r'(?P<minute>\d\d):'
-                            r'(?P<second>\d\d)\] '
+                            r'(?P<second>\d\d)\]\s+'
                             r'(?P<text>.*)',
                             line)
                     assert(r != None)
@@ -791,6 +797,7 @@ class TestTimestat(unittest.TestCase):
         if self.tmpfile != '':
             os.remove(self.tmpfile)
 
+
     def test_hhmm_to_mins(self):
 
         self.assertEqual(hhmm_to_seconds('0'), 0)
@@ -801,7 +808,9 @@ class TestTimestat(unittest.TestCase):
         self.assertEqual(hhmm_to_seconds('1:40'), 60 * 100)
         self.assertEqual(hhmm_to_seconds('120:10'), 60 * 7210)
 
+
     def test_mins_to_hhmm(self):
+
         self.assertEqual(seconds_to_hhmm(60 * 0), '00:00')
         self.assertEqual(seconds_to_hhmm(60 * 1), '00:01')
         self.assertEqual(seconds_to_hhmm(60 * 100), '01:40')
@@ -812,7 +821,29 @@ class TestTimestat(unittest.TestCase):
         self.assertEqual(seconds_to_hhmm(- 60 * 7210), '-120:10')
 
 
+    def test_split_comment(self):
+
+        self.assertEqual(split_comment(''), ('', ''))
+        self.assertEqual(split_comment('abc'), ('abc', ''))
+
+        self.assertEqual(split_comment('abc#'), ('abc#', ''))
+        self.assertEqual(split_comment('abc #'), ('abc', ''))
+        self.assertEqual(split_comment('abc  # '), ('abc', ''))
+
+        self.assertEqual(split_comment('abc # def'), ('abc', 'def'))
+        self.assertEqual(split_comment('abc ## def'), ('abc', '# def'))
+        self.assertEqual(split_comment('abc# def'), ('abc# def', ''))
+        self.assertEqual(split_comment('abc #def'), ('abc', 'def'))
+        self.assertEqual(split_comment('abc#def'), ('abc#def', ''))
+
+        self.assertEqual(split_comment('abc # def # 123'), ('abc', 'def # 123'))
+        self.assertEqual(split_comment('abc ## def ## 123'), ('abc', '# def ## 123'))
+
+        self.assertEqual(split_comment('abc\t#\tdef'), ('abc', 'def'))
+        self.assertEqual(split_comment('abc \t # \t def'), ('abc', 'def'))
+
     def test_get_categories(self):
+
         self.assertEqual(get_categories('ab'), ['ab'])
         self.assertEqual(get_categories('a/b/c'), ['a', 'a/b', 'a/b/c'])
 

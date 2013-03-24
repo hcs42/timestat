@@ -125,15 +125,14 @@ Usage:
     timestat [options] quickadd
     timestat [options] quickadd ACTION
 
-Perform the "next logical step", according to the according file. The
-step is calculated in the following way:
+Switch to the previous state. The step is calculated in the following
+way:
 
 - If `ACTION` is specified, start work on that action. Otherwise:
 - If an activity is ongoing (according to the action file), stop that activity.
-- If there is no ongoing activity, resume the latest one.
-
-If more than one parameter is given, they will be joined and handled as one
-action.
+- If there is no ongoing activity, find out the previous state (either
+  'stopped' or a previous activity), and go into that state (i.e.
+  either stop, or start the previous activity).
 
 Options:
 
@@ -144,6 +143,14 @@ Options:
   `--actionfile` is specified, then `ACTION` will be added to the
   action file whose name contains `ACTIONFILE_SUBSTR`. If
   `--actionfile` is not specified, the first action file will be used.
+
+Notes:
+
+- If more than one parameter is given, they will be joined and handled
+  as one action.
+- Although the previous state is found out based on all action files,
+  the new line will be added to the one specified by `--actionfile`
+  (or the default one).
 
 Examples: see the [Quick demo](#quick-demo) above.
 
@@ -286,9 +293,7 @@ action text:
 
     [YYYY-mm-dd HH:MM:SS] ACTION_TEXT
 
-The only exceptions to this rule are that an action files may contain
-empty lines and comment lines (which start with hash mark), but these
-are ignored by Timestat.
+The only exceptions to this rule are empty lines and comments, see later.
 
 The **action text** may have the following formats:
 
@@ -329,7 +334,33 @@ The **action text** may have the following formats:
         increase-target mywork 8:00
         increase-target work/task1 90
 
-The action files do not have to be sorted.
+Action files do not have to be sorted.
+
+### Comments 
+
+Beside the descriptions of actions, an action file may contain empty
+lines and comment. Comment are marked with a hash mark. A comment is
+### Notes
+
+Action files do not have to be sorted.
+
+either a whole line, or it is after the description of an action. (In
+the latter case, only hash marks preceeded by a space character are
+considered comments.)
+
+So for example the following is a valid action file:
+
+    # My work
+    [2009-07-25 20:33:07] mywork # wow, this was hard
+    [2009-07-25 20:53:11] stop
+
+    # My jobs
+    [2009-07-25 20:54:11] job#01 # this was hard too
+    [2009-07-25 21:23:11] job#02 # this was easy
+    [2009-07-25 21:30:11] stop
+
+In this example, the activities are called "mywork", "job#01" and
+"job#02".
 
 Bashrc
 ------
