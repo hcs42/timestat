@@ -539,18 +539,19 @@ def show(options):
             if len(events) > 0 and events[-1].ongoing:
                 event = events[-1]
                 print '%s: %s' % (event.activity,
-                                 seconds_to_hhmm(event.timelen))
+                                 seconds_to_hhmm(event.timelen,
+                                                 options.seconds))
 
         else:
             if not options.sum:
                 d2 = {}
                 for key, value in activities.items():
-                    d2[key] = seconds_to_hhmm(value)
+                    d2[key] = seconds_to_hhmm(value, options.seconds)
                 for key, value in sorted(d2.items()):
                     print '%s: %s' % (key, value)
 
             time_sum = sum(activities.values())
-            time_sum = seconds_to_hhmm(time_sum)
+            time_sum = seconds_to_hhmm(time_sum, options.seconds)
             print 'Sum:', time_sum
 
 
