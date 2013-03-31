@@ -374,7 +374,7 @@ The following lines are handy in `.bashrc` or `.bash_profile`:
     alias tq=".../timestat quickadd"    # timestat alias
 
 If you use multiple machines, it is convenient to use a separate
-action file for each one, since this way you will have have merge
+action file for each one, since this way you will not have merge
 problems with synchronizing them.
 
 Since the modifier commands (add, quickadd, edit) will use the first
