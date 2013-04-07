@@ -340,10 +340,6 @@ Action files do not have to be sorted.
 
 Beside the descriptions of actions, an action file may contain empty
 lines and comment. Comment are marked with a hash mark. A comment is
-### Notes
-
-Action files do not have to be sorted.
-
 either a whole line, or it is after the description of an action. (In
 the latter case, only hash marks preceeded by a space character are
 considered comments.)
