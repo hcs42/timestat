@@ -336,12 +336,15 @@ The **action text** may have the following formats:
 
 Action files do not have to be sorted.
 
+Currently if an activity is started in an action file, it has to be finished in
+that file. This is planned to be changed in the future.
+
 ### Comments 
 
 Beside the descriptions of actions, an action file may contain empty
 lines and comment. Comment are marked with a hash mark. A comment is
 either a whole line, or it is after the description of an action. (In
-the latter case, only hash marks preceeded by a space character are
+the latter case, only hash marks preceded by a space character are
 considered comments.)
 
 So for example the following is a valid action file:
