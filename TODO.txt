@@ -1,6 +1,27 @@
 - Activity filter: --filter=day:1-5 --filter=hour:8-16
     - move "between" filtering into "events"
     - maybe deprecate --ignore-activities in favor of this
+- Show errors when encountering negative intervals and unmatched stops
+- merge all actionfiles when they are read (so that one can start an activity
+  and another one can stop it)
+
+- quickadd should select from existing activities:
+
+    $ timestat quickadd ti
+    "hobby/timestat" activity started
+    $
+
+    $ timestat quickadd sta
+    The substring "sta" occurs in several activities. Which one do you want to
+    start?
+    [1] hobby/timestat
+    [2] work/erlang-install
+    > _
+
+    $ timestat quickadd xx
+    Substring not contained by any activity: xx
+    Do you want to create a new activity called "xx"? [y/n] _
+
 - timestat switch # switch to other activity
 - timestat --interactive switch
     - switch to other activity by showing the last 10 tasks
