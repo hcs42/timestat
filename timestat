@@ -42,7 +42,7 @@ def timedelta_to_seconds(td):
 
 
 def seconds_to_timedelta(seconds):
-    return datetime.timedelta(seconds)
+    return datetime.timedelta(seconds=seconds)
 
 
 def str_to_date(s):
@@ -238,8 +238,19 @@ class Action(Happening):
     def __lt__(self, other):
         if self.type == 'interval':
             return True # intervals first
+        elif other.type == 'interval':
+            return False # intervals first
         else:
             return self.datetime < other.datetime
+
+    def __gt__(self, other):
+        assert False
+
+    def __le__(self, other):
+        assert False
+
+    def __ge__(self, other):
+        assert False
 
     def calc(self):
         r = ReMatch()
@@ -387,7 +398,8 @@ def collect_happenings(options, actions, now=None):
                           starttime=starttime,
                           timelen=timelen)
             if timelen is not None:
-                event.stoptime = event.starttime + seconds_to_timedelta(timelen)
+                event.stoptime = event.starttime + \
+                    seconds_to_timedelta(timelen)
             else:
                 event.ongoing = True
             happenings.append(event)
@@ -527,6 +539,16 @@ def show_targets(options):
         print 'Difference:',  show(actual_timelen - target_timelen)
         print
 
+def print_object(name, options):
+    actions, happenings, events, activities = collect_everything(options)
+
+    l = (actions if name == 'actions' else
+         happenings if name == 'happenings' else
+         events if name == 'events' else
+         activities if name == 'activities' else
+         ['Object unknown: %s' % name])
+    for item in l:
+        print item
 
 def show(options):
     if options.weekly_sum:
@@ -643,8 +665,11 @@ Read manual.markdown more information.''', version = '%prog 2.0')
                       help='Work with actions since this date.')
     parser.add_option('--until', dest='until', default='today',
                       help='Work with actions until this date.')
-    parser.add_option('--day', dest='day',
+    parser.add_option('-d', '--day', dest='day',
                       help='Work with actions on this date.')
+    parser.add_option('-t', '--today', dest='today',
+                      action='store_true', default=False,
+                      help='Same as --day today.')
     parser.add_option('-w', '--weekly-sum', dest='weekly_sum',
                       action='store_true', default=False,
                       help='Print a weekly summary.')
@@ -675,6 +700,9 @@ Read manual.markdown more information.''', version = '%prog 2.0')
         options.since = str_to_date(options.since)
 
     options.until = str_to_date(options.until)
+
+    if options.today:
+        options.day = 'today'
 
     if options.day is not None:
         options.since = str_to_date(options.day)
@@ -750,12 +778,15 @@ def main():
     elif args[0] == 'show-weekly-sum':
         check_args(0)
         show_weekly_sum(options)
-    elif args[0] == 'show-status':
+    elif args[0] in ('ss', 'show-status'):
         check_args(0)
         show_status(options)
-    elif args[0] == 'show-targets':
+    elif args[0] in('st', 'show-targets'):
         check_args(0)
         show_targets(options)
+    elif args[0] in ('print'):
+        check_args(1)
+        print_object(args[1], options)
     elif args[0] in ('a', 'add'):
         check_min_args(1)
         add(options, ' '.join(args[1:]))

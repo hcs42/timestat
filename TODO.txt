@@ -2,6 +2,10 @@
     - move "between" filtering into "events"
     - maybe deprecate --ignore-activities in favor of this
 - Show errors when encountering negative intervals and unmatched stops
+    - This is possibly error:
+        [...17:00:00] mywork
+        [...16:20:00] myotherwork
+      Maybe the actions files should be sorted after all?
 - merge all actionfiles when they are read (so that one can start an activity
   and another one can stop it)
 

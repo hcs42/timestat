@@ -218,8 +218,9 @@ Options:
 - `--until DATE`: Work with actions until this date. (Format: see
   below.) The default value is `today`, which has the advantage that
   future targets are not yet taken into account.
-- `--day DATE`: Work with actions on this date. (Format: see below.)
+- `-d DATE, --day DATE`: Work with actions on this date. (Format: see below.)
   `--day DATE` is equivalent to `--since DATE --until DATE`.
+- `-t, --today` is equivalent to `--day today`.
 - `-w, --weekly-sum`: Print a weekly summary.
 - `-s, --sum`: Print only the sum of the activity time.
 - `-i, --ignore-activities`: Ignore the given activities. The activities should
@@ -249,6 +250,14 @@ Examples:
 
     $ timestat -c
     myotherwork:20
+
+### print: print objects (for troubleshooting)
+
+Usage:
+
+    timestat print actions
+    timestat print events
+    timestat print activities
 
 ### test: run unit tests
 
