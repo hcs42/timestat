@@ -859,6 +859,8 @@ class TestTimestat(unittest.TestCase):
             pass
         self.options = Options()
         self.options.ignored_activities = []
+        self.options.since = None
+        self.options.until = None
         self.maxDiff = 2000
 
     def tearDown(self):
