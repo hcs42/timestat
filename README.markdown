@@ -221,6 +221,7 @@ Options:
 - `-d DATE, --day DATE`: Work with actions on this date. (Format: see below.)
   `--day DATE` is equivalent to `--since DATE --until DATE`.
 - `-t, --today` is equivalent to `--day today`.
+- `-y, --yesterday` is equivalent to `--day yesterday`.
 - `-w, --weekly-sum`: Print a weekly summary.
 - `-s, --sum`: Print only the sum of the activity time.
 - `-i, --ignore-activities`: Ignore the given activities. The activities should
@@ -231,8 +232,8 @@ Options:
 
 Date formats:
 
-- `today`
-- `yesterday`
+- `t`, `today`
+- `y`, `yesterday`
 - `yyyy-mm-dd`
 - `mm-dd`: Given day in the current year. (Be careful with it in
   January, since `12-xx` means the end of the current year, not last
@@ -327,11 +328,12 @@ The **action text** may have the following formats:
         TIME_LENGTH ACTIVITY
 
   where `TIME_LENGTH` specifies the length of the activity (either in
-  `MM` or `HH:MM` format), and `ACTIVITY` may not contain whitespace.
-  For example:
+  `MM`, `HH:MM` or `HH:MM:SS` format), and `ACTIVITY` may not contain
+  whitespace. For example:
 
         10 myotherwork
         1:30 myotherwork
+        1:30:12 myotherwork
 
 - **Increase target action**, which means that the target time of an
   activity is increased:

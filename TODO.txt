@@ -26,6 +26,11 @@
     Substring not contained by any activity: xx
     Do you want to create a new activity called "xx"? [y/n] _
 
+- timestat aliases:
+
+    $ timestat quickadd e
+    "hobby/english/ew/prac" activity started
+
 - timestat switch # switch to other activity
 - timestat --interactive switch
     - switch to other activity by showing the last 10 tasks

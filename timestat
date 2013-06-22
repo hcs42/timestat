@@ -47,10 +47,10 @@ def seconds_to_timedelta(seconds):
 
 def str_to_date(s):
 
-    if s == 'today':
+    if s in ('t', 'today'):
         return datetime.date.today()
 
-    if s == 'yesterday':
+    if s in ('y', 'yesterday'):
         return datetime.date.today() - datetime.timedelta(days=1)
 
     r = re.match('^(\d\d\d\d)-(\d\d)-(\d\d)$', s)
@@ -82,10 +82,32 @@ def datetime_to_str(dt):
 
 
 def hhmm_to_seconds(s):
+    # Accepted formats:
+    # - M
+    # - H:M
+    # - H:M:S
+
+    r = re.match('^(\d+)$', s)
+    if r:
+        hours, minutes, seconds = 0, int(r.group(1)), 0
+
+    r = re.match('^(\d+):(\d+)$', s)
+    if r:
+        hours, minutes, seconds = int(r.group(1)), int(r.group(2)), 0
+
+    r = re.match('^(\d+):(\d+):(\d+)$', s)
+    if r:
+        hours, minutes, seconds = \
+            int(r.group(1)), int(r.group(2)), int(r.group(3))
+
+    return hours * 3600 + minutes * 60 + seconds
+
     r = re.match('^(?:(\d+):)?(\d+)$', s)
-    hours = int(r.group(1)) if r.group(1) is not None else 0
-    minutes = int(r.group(2))
-    return (hours * 60 + minutes) * 60
+    if r:
+        hours = int(r.group(1)) if r.group(1) is not None else 0
+        minutes = int(r.group(2))
+        return (hours * 60 + minutes) * 60
+
 
 
 def seconds_to_hhmm(seconds, show_seconds=False, negative=False):
@@ -319,6 +341,10 @@ class Event(Happening):
     def is_event(self):
         return True
 
+    def between(self, since, until):
+        return ((since == None or self.starttime.date() >= since) and
+                (until == None or self.starttime.date() <= until))
+
 
 ##### Action file handling #####
 
@@ -379,8 +405,6 @@ def collect_actions(options):
     for actionfile in options.actionfiles:
         actions += parse_actionfile(actionfile)
     actions.sort()
-    actions = [ action for action in actions
-                if action.between(options.since, options.until) ]
     return actions
 
 
@@ -437,6 +461,9 @@ def collect_happenings(options, actions, now=None):
             happenings.append(action)
 
     close_prev_event(now, ongoing=True)
+
+    happenings = [ happening for happening in happenings
+                   if happening.between(options.since, options.until)]
 
     return happenings
 
@@ -542,13 +569,16 @@ def show_targets(options):
 def print_object(name, options):
     actions, happenings, events, activities = collect_everything(options)
 
-    l = (actions if name == 'actions' else
-         happenings if name == 'happenings' else
-         events if name == 'events' else
-         activities if name == 'activities' else
-         ['Object unknown: %s' % name])
-    for item in l:
-        print item
+    if name == 'activities':
+        for item in activities.items():
+            print item
+    else:
+        l = (actions if name == 'actions' else
+             happenings if name == 'happenings' else
+             events if name == 'events' else
+             ['Object unknown: %s' % name])
+        for item in l:
+            print item
 
 def show(options):
     if options.weekly_sum:
@@ -651,7 +681,7 @@ def parse_args():
     parser = optparse.OptionParser(
                 usage='''%prog [options] [COMMAND [COMMAND PARAMETERS]]
 
-Read manual.markdown more information.''', version = '%prog 2.0')
+Read README.markdown more information.''', version = '%prog 2.0')
 
     # Common options
     parser.add_option('-f', '--actionfiles', dest='actionfiles',
@@ -670,6 +700,9 @@ Read manual.markdown more information.''', version = '%prog 2.0')
     parser.add_option('-t', '--today', dest='today',
                       action='store_true', default=False,
                       help='Same as --day today.')
+    parser.add_option('-y', '--yesterday', dest='yesterday',
+                      action='store_true', default=False,
+                      help='Same as --day yesterday.')
     parser.add_option('-w', '--weekly-sum', dest='weekly_sum',
                       action='store_true', default=False,
                       help='Print a weekly summary.')
@@ -703,6 +736,9 @@ Read manual.markdown more information.''', version = '%prog 2.0')
 
     if options.today:
         options.day = 'today'
+
+    if options.yesterday:
+        options.day = 'yesterday'
 
     if options.day is not None:
         options.since = str_to_date(options.day)
