@@ -725,14 +725,14 @@ Read README.markdown more information. You can print it by typing
 "timestat full-help".
 
 Commands:
-  add ACTION            Add an action to the action file.
-  edit                  Open the action file in a text editor.
   full-help             Print the full documentation.
+  add ACTION            Add an action to the action file.
+  quickadd ACTION       Perform the "next logical step".
+  edit                  Open the action file in a text editor.
   list                  List all action files.
   print actions         Print all actions.
   print activities      Print all activities.
   print events          Print all events.
-  quickadd ACTION       Perform the "next logical step".
   show                  Show stats about the activities.
   show-status           Show the current activity.
   show-targets          Show targets.
