@@ -47,3 +47,5 @@
 - normalization:
     - intervals should use hh:mm in action files
     - -H should be the default
+- command to print or open readme
+- add commands to --help
