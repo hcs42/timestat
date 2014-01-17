@@ -209,6 +209,18 @@ def editor_to_editor_list(editor):
 
 ##### Model classes: actions, events, happenings #####
 
+# Data model:
+#
+# - action examples:
+#     - start doing something
+#     - stop doing anything
+#     - reporting doing something for a time duration
+#     - adding a target
+# - happening examples:
+#     - event: doing something in a time interval or for a time duration
+#     - action: adding a target
+#  - activity example:
+#     - "hobby/book-reading"
 
 class Happening:
 
@@ -410,6 +422,24 @@ def collect_actions(options):
     actions.sort()
     return actions
 
+def is_activity_needed(act, opt):
+    ignore_act = opt.ignore_activities
+    ignore_act_pattern = opt.ignore_activities_pattern
+    only_act = opt.only_activities
+    only_act_pattern = opt.only_activities_pattern
+
+    if ignore_act and (act in ignore_act):
+        return False
+    elif ignore_act_pattern and re.search(ignore_act_pattern, act):
+        return False
+    elif not (only_act or only_act_pattern):
+        return True
+    elif only_act and (act in only_act):
+        return True
+    elif only_act_pattern and re.search(only_act_pattern, act):
+        return True
+    else: # only_act or only_act_pattern is set, but the act. does not match
+        return False
 
 def collect_happenings(options, actions, now=None):
 
@@ -420,7 +450,7 @@ def collect_happenings(options, actions, now=None):
 
     def add_event(activity, starttime, timelen):
         """Adds an activity to the dict."""
-        if activity not in options.ignored_activities:
+        if is_activity_needed(activity, options):
             event = Event(activity=activity,
                           starttime=starttime,
                           timelen=timelen)
@@ -712,9 +742,22 @@ Read README.markdown more information.''', version = '%prog 2.0')
     parser.add_option('-s', '--sum', dest='sum',
                       action='store_true', default=False,
                       help='Print only the sum of the activity time.')
-    parser.add_option('-i', '--ignore-activities', dest='ignored_activities',
-                      default='',
+    parser.add_option('-i', '--ignore-activities', dest='ignore_activities',
+                      default=None,
                       help='Ignores the given activities.')
+    parser.add_option('-I', '--ignore-activities-pattern',
+                      dest='ignore_activities_pattern',
+                      default=None,
+                      help='Ignores the activities that match the given '
+                           'pattern.')
+    parser.add_option('-o', '--only-activities', dest='only_activities',
+                      default=None,
+                      help='Considers only the given activities.')
+    parser.add_option('-O', '--only-activities-pattern',
+                      dest='only_activities_pattern',
+                      default=None,
+                      help='Considers only the activities that match the '
+                           'given pattern.')
     parser.add_option('-c', '--current', dest='current',
                       action='store_true', default=False,
                       help='Display the name of ongoing task, if any.')
@@ -747,9 +790,14 @@ Read README.markdown more information.''', version = '%prog 2.0')
         options.since = str_to_date(options.day)
         options.until = str_to_date(options.day)
 
-    # Prepare: ignored_activities
-    options.ignored_activities = \
-        set(options.ignored_activities.split(':')) - set([''])
+    # Prepare: ignore_activities, only_activities
+    if options.ignore_activities is not None:
+        options.ignore_activities = \
+            set(options.ignore_activities.split(':')) - set([''])
+
+    if options.only_activities is not None:
+        options.only_activities = \
+            set(options.only_activities.split(':')) - set([''])
 
     # Prepare: actionfiles
     if options.actionfiles is not None:
@@ -861,7 +909,10 @@ class TestTimestat(unittest.TestCase):
         class Options:
             pass
         self.options = Options()
-        self.options.ignored_activities = []
+        self.options.ignore_activities = None
+        self.options.only_activities = None
+        self.options.ignore_activities_pattern = None
+        self.options.only_activities_pattern = None
         self.options.since = None
         self.options.until = None
         self.maxDiff = 2000
@@ -1027,6 +1078,73 @@ class TestTimestat(unittest.TestCase):
         actual_events = collect_events(self.options, actual_happenings)
         expected_events = expected_happenings
         self.assertEqual(actual_events, expected_events)
+
+    def test_ignore_and_only(self):
+
+        # Actionfile
+        fd, filename = tempfile.mkstemp()
+        self.tempfile = filename
+        os.write(fd, '''
+[2000-01-01 00:00:00] work
+[2000-01-01 00:10:00] myotherwork
+[2000-01-01 00:11:00] something_else
+[2000-01-01 00:12:00] increase-target work 5
+[2000-01-01 00:20:00] stop
+''')
+        os.close(fd)
+
+        self.options.actionfiles = [filename]
+
+        def t(ign, ign_pat, only, only_pat, expected_activities):
+            self.options.ignore_activities = ign
+            self.options.ignore_activities_pattern = ign_pat
+            self.options.only_activities = only
+            self.options.only_activities_pattern = only_pat
+            _, _, _, actual_activities = collect_everything(self.options)
+            self.assertEqual(actual_activities, expected_activities)
+
+        # Basic test
+        t(None, None, None, None,
+          {'work': 600.0,
+           'myotherwork': 60.0,
+           'something_else': 540.0})
+
+        # Ignore
+        t(['work'], None, None, None,
+          {'myotherwork': 60.0,
+           'something_else': 540.0})
+
+        # Ignore
+        t(['work', 'myotherwork'], None, None, None,
+          {'something_else': 540.0})
+
+
+        # Ignore pattern
+        t(None, 'work', None, None,
+          {'something_else': 540.0})
+
+        # "Only"
+        t(None, None, ['work'], None,
+          {'work': 600.0})
+
+        # "Only"
+        t(None, None, ['work', 'myotherwork'], None,
+          {'work': 600.0,
+           'myotherwork': 60.0})
+
+        # "Only" pattern
+        t(None, None, None, 'work',
+          {'work': 600.0,
+           'myotherwork': 60.0})
+
+        # "Only" pattern
+        t(None, None, None, 'o.*t',
+          {'myotherwork': 60.0,
+           'something_else': 540.0})
+
+        # "Ignore" + "Only" pattern
+        t(None, 'work', None, 'o.*t',
+          {'something_else': 540.0})
 
 
 if __name__ == '__main__':
