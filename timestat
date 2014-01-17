@@ -714,7 +714,20 @@ def parse_args():
     parser = optparse.OptionParser(
                 usage='''%prog [options] [COMMAND [COMMAND PARAMETERS]]
 
-Read README.markdown more information.''', version = '%prog 2.0')
+Read README.markdown more information.
+
+Commands:
+  add ACTION            Add an action to the action file.
+  quickadd ACTION       Perform the "next logical step".
+  edit                  Open the action file in a text editor.
+  list                  List all action files.
+  show                  Show stats about the activities.
+  show-status           Show the current activity.
+  show-targets          Show targets.
+  print actions         Print all actions.
+  print events          Print all events.
+  print activities      Print all activities.
+  test                  Run unit tests''', version = '%prog 2.0')
 
     # Common options
     parser.add_option('-f', '--actionfiles', dest='actionfiles',
