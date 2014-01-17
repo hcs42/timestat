@@ -706,6 +706,13 @@ def quickadd(options, args):
         print '"%s" activity stopped' % events[-1].activity
 
 
+def print_full_help():
+    f = sys.argv[0]
+    f = os.readlink(f) if os.path.islink(f) else f
+    with open(os.path.join(os.path.dirname(f), 'README.markdown')) as readme:
+        sys.stdout.write(readme.read())
+
+
 ##### Option and command parsing #####
 
 
@@ -714,19 +721,21 @@ def parse_args():
     parser = optparse.OptionParser(
                 usage='''%prog [options] [COMMAND [COMMAND PARAMETERS]]
 
-Read README.markdown more information.
+Read README.markdown more information. You can print it by typing
+"timestat full-help".
 
 Commands:
   add ACTION            Add an action to the action file.
-  quickadd ACTION       Perform the "next logical step".
   edit                  Open the action file in a text editor.
+  full-help             Print the full documentation.
   list                  List all action files.
+  print actions         Print all actions.
+  print activities      Print all activities.
+  print events          Print all events.
+  quickadd ACTION       Perform the "next logical step".
   show                  Show stats about the activities.
   show-status           Show the current activity.
   show-targets          Show targets.
-  print actions         Print all actions.
-  print events          Print all events.
-  print activities      Print all activities.
   test                  Run unit tests''', version = '%prog 2.0')
 
     # Common options
@@ -898,6 +907,9 @@ def main():
     elif args[0] == 'list':
         check_args(0)
         list_actionfiles(options)
+    elif args[0] == 'full-help':
+        check_args(0)
+        print_full_help()
     elif args[0] == 'test':
         check_args(0)
         sys.argv = sys.argv[0:1] # unittest reads sys.argv
