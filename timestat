@@ -38,7 +38,7 @@ import sys
 
 
 def timedelta_to_seconds(td):
-    return td.total_seconds()
+    return int(td.total_seconds())
 
 
 def seconds_to_timedelta(seconds):
@@ -559,7 +559,7 @@ def show_weekly_sum(options):
         d[x] += event.timelen
     for k in sorted(d.keys()):
         print k,
-        print 'x' * (d[k] / 60)
+        print 'x' * (d[k] / 3600)
 
 
 def show_status(options):
