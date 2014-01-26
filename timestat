@@ -34,6 +34,36 @@ import subprocess
 import sys
 
 
+##### Helper functions: error handling #####
+
+class Exit(Exception):
+
+    def __init__(self, retcode, msg, data=None):
+        self.retcode = retcode
+        if data is not None:
+            msg = msg % data
+        self.msg = msg
+
+    
+##### Helper functions: printing text #####
+
+
+def w_core(s):
+    sys.stdout.write(s)
+    sys.stdout.flush()
+
+def w(s, data=None):
+    if data is not None:
+        s = s % data
+    w_core(s)
+
+def wl(s, data=None):
+    if data is not None:
+        s = s % data
+    w_core(s)
+    w_core('\n')
+
+
 ##### Helper functions: date and time #####
 
 
@@ -649,28 +679,28 @@ def add_activity(options, activity, everything=None):
 
     if activity == 'stop':
         if len(events) > 0 and events[-1].ongoing:
-            print '"%s" activity stopped' % (events[-1].activity,)
+            wl('"%s" activity stopped' % (events[-1].activity,))
             add(options, activity)
         else:
-            print 'Do nothing: there is nothing to stop.'
+            wl('Do nothing: there is nothing to stop.')
     elif len(events) == 0:
         add(options, activity)
-        print '"%s" activity started' % (activity,)
+        wl('"%s" activity started' % (activity,))
     elif events[-1].ongoing:
         if events[-1].activity == activity:
-            print 'Do nothing: "%s" activity is going on anyway.' % \
-                  (activity,)
+            wl('Do nothing: "%s" activity is going on anyway.' %
+               (activity,))
         else:
             add(options, activity)
-            print '"%s" activity started, "%s" activity stopped' % \
-                  (activity, events[-1].activity)
+            wl('"%s" activity started, "%s" activity stopped' %
+               (activity, events[-1].activity))
     else:
         if events[-1].activity == activity:
             add(options, activity)
-            print '"%s" activity resumed' % (activity,)
+            wl('"%s" activity resumed' % (activity,))
         else:
             add(options, activity)
-            print '"%s" activity started' % (activity,)
+            wl('"%s" activity started' % (activity,))
 
 
 def parse_add_cmd_args(args):
@@ -719,26 +749,27 @@ def list_actionfiles(options):
 
 def expand_activity(activity, activities):
 
+    if len(activity) == 0:
+        raise Exit(1, 'Empty activity specified.')
+
     if activity[0] == '%':
         activity = activity[1:]
         act_hits = sorted(set([act for act in activities
                                if re.search(activity, act)]))
         if len(act_hits) == 0:
-            print 'ERROR: no matching activity.'
-            sys.exit(1)
+            raise Exit(1, 'No activity matches "%s".', activity)
         elif len(act_hits) == 1:
             activity = act_hits[0]
         else:
-            print 'Select the desired match (empty line = cancel):'
+            wl('Select the desired match (empty line = cancel):')
             for i, act in enumerate(act_hits):
-                print '%s: %s' % (i + 1, act)
+                wl('%s: %s' % (i + 1, act))
             while True:
                 sys.stdout.write('> ')
                 sys.stdout.flush()
                 line = sys.stdin.readline().strip()
                 if line == '':
-                    print 'Cancel.'
-                    sys.exit(0)
+                    raise Exit(0, 'Cancelled.')
                 else:
                     try:
                         act_index = int(line)
@@ -748,12 +779,12 @@ def expand_activity(activity, activities):
                         # rest of quickadd() to handle it.
                         break
                     except Exception:
-                        print 'Please type one of the numbers above or an ' \
-                              'empty line to cancel.'
+                        wl('Please type one of the numbers above or an ' 
+                           'empty line to cancel.')
     return activity
 
 
-def quickadd(options, activity, duration):
+def quickadd(options, activity, duration=None):
 
     actions, happenings, events, activities = collect_everything(options)
     if activity is not None:
@@ -773,13 +804,12 @@ def quickadd(options, activity, duration):
 
     # If there are no events, we don't know what to do
     if len(events) == 0:
-        print 'ERROR: Action file does not contain any event!'
-        sys.exit(1)
+        raise Exit(1, 'Action file does not contain any event.')
 
     # If the last event is not ongoing, let's resume it
     elif not events[-1].ongoing:
         add(options, events[-1].activity)
-        print '"%s" activity resumed' % (events[-1].activity,)
+        wl('"%s" activity resumed' % (events[-1].activity,))
 
     # If the last event is ongoing, let's examine what we were doing at the
     # moment when this last event was started!
@@ -787,14 +817,14 @@ def quickadd(options, activity, duration):
     # If we had already been doing something, let's resume that activity.
     elif (len(events) > 1) and (events[-2].stoptime == events[-1].starttime):
         add(options, events[-2].activity)
-        print '"%s" activity resumed, "%s" activity stopped' % \
-              (events[-2].activity, events[-1].activity)
+        wl('"%s" activity resumed, "%s" activity stopped' % 
+           (events[-2].activity, events[-1].activity))
 
     # Otherwise let's stop (i.e. resume the 'stopped' state that we had before
     # the current activity.).
     else:
         add(options, 'stop')
-        print '"%s" activity stopped' % events[-1].activity
+        wl('"%s" activity stopped' % events[-1].activity)
 
 
 def print_full_help():
@@ -807,7 +837,7 @@ def print_full_help():
 ##### Option and command parsing #####
 
 
-def parse_args():
+def parse_args(input_args):
 
     parser = optparse.OptionParser(
                 usage='''%prog [options] [COMMAND [COMMAND PARAMETERS]]
@@ -882,7 +912,7 @@ Commands:
     parser.add_option('-a', '--actionfile', dest='actionfile',
                       help='Specify which action file to use.')
 
-    options, args = parser.parse_args()
+    options, args = parser.parse_args(input_args)
 
     if len(args) > 0 and args[0] == 'test':
         return options, args
@@ -950,9 +980,9 @@ Commands:
 ##### Main function (running the commands) #####
 
 
-def main():
+def main_core(input_args):
 
-    options, args = parse_args()
+    options, args = parse_args(input_args)
 
     def check_args(num):
         if len(args) - 1 != num:
@@ -1017,8 +1047,18 @@ def main():
         sys.argv = sys.argv[0:1] # unittest reads sys.argv
         unittest.main()
     else:
-        print 'Error: unrecognized command:', args[0]
-        sys.exit(1)
+        raise Exit(1, 'Unrecognized command: %s.', args[0])
+
+
+def main():
+    try:
+        main_core(sys.argv[1:])
+    except Exit as e:
+        if e.retcode == 0:
+            wl(e.msg)
+        else:
+            wl('Error: %s', e.msg)
+            sys.exit(1)
 
 
 ##### Unit tests #####
@@ -1030,8 +1070,16 @@ import tempfile
 
 class TestTimestat(unittest.TestCase):
 
+    ##### setUp and tearDown #####
+
     def setUp(self):
         self.tmpfile = ''
+
+        # Override the default 'print' function
+        self.output = ''
+        global w_core
+        def w_core(s):
+            self.output += s
 
         class Options:
             pass
@@ -1042,12 +1090,38 @@ class TestTimestat(unittest.TestCase):
         self.options.only_activities_pattern = None
         self.options.since = None
         self.options.until = None
+        self.options.verbose = False
         self.maxDiff = 2000
 
     def tearDown(self):
         if self.tmpfile != '':
             os.remove(self.tmpfile)
 
+    ##### Helper functions #####
+
+    def assertExit(self, context_manager, expected_retcode, expected_msg):
+        """Assert that an Exit exception with a given return code and message
+        was raised."""
+        self.assertOutput('')
+        e = context_manager.exception
+        self.assertEquals(e.retcode, expected_retcode)
+        self.assertEquals(e.msg, expected_msg)
+
+    def assertOutput(self, expected):
+        """Assert that the given output was printed."""
+        self.assertEquals(self.output.strip(), expected.strip())
+        self.output = ''
+
+    def create_action_file(self, content):
+        fd, filename = tempfile.mkstemp()
+        self.tempfile = filename
+        os.write(fd, content)
+        os.close(fd)
+        self.options.actionfile = filename
+        self.options.actionfiles = [filename]
+        return filename
+
+    ##### Test pure functions #####
 
     def test_hhmm_to_mins(self):
 
@@ -1099,20 +1173,19 @@ class TestTimestat(unittest.TestCase):
         self.assertEqual(get_categories('a/b/c'), ['a', 'a/b', 'a/b/c'])
 
 
+    ##### Test function reading the action files ####
+
+
     def test_actionfile(self):
 
         # Actionfile
-        fd, filename = tempfile.mkstemp()
-        self.tempfile = filename
-        os.write(fd, '''
-[2000-01-01 00:00:00] mywork
-
-# Comment
-[2000-01-01 00:10:00] myotherwork
-[2000-01-01 00:12:00] increase-target mywork 5
-[2000-01-01 00:20:00] stop
-''')
-        os.close(fd)
+        filename = self.create_action_file('''
+                       [2000-01-01 00:00:00] mywork
+                       
+                       # Comment
+                       [2000-01-01 00:10:00] myotherwork
+                       [2000-01-01 00:12:00] increase-target mywork 5
+                       [2000-01-01 00:20:00] stop''')
 
         # Actions
         actual_actions = parse_actionfile(filename)
@@ -1175,12 +1248,8 @@ class TestTimestat(unittest.TestCase):
     def test_ongoing_activity(self):
 
         # Actionfile
-        fd, filename = tempfile.mkstemp()
-        self.tempfile = filename
-        os.write(fd, '''
-[2000-01-01 00:00:00] mywork
-''')
-        os.close(fd)
+        filename = self.create_action_file('''
+                       [2000-01-01 00:00:00] mywork''')
 
         # Actions
         actual_actions = parse_actionfile(filename)
@@ -1209,18 +1278,12 @@ class TestTimestat(unittest.TestCase):
     def test_ignore_and_only(self):
 
         # Actionfile
-        fd, filename = tempfile.mkstemp()
-        self.tempfile = filename
-        os.write(fd, '''
-[2000-01-01 00:00:00] work
-[2000-01-01 00:10:00] myotherwork
-[2000-01-01 00:11:00] something_else
-[2000-01-01 00:12:00] increase-target work 5
-[2000-01-01 00:20:00] stop
-''')
-        os.close(fd)
-
-        self.options.actionfiles = [filename]
+        self.create_action_file('''
+            [2000-01-01 00:00:00] work
+            [2000-01-01 00:10:00] myotherwork
+            [2000-01-01 00:11:00] something_else
+            [2000-01-01 00:12:00] increase-target work 5
+            [2000-01-01 00:20:00] stop''')
 
         def t(ign, ign_pat, only, only_pat, expected_activities):
             self.options.ignore_activities = ign
@@ -1272,6 +1335,37 @@ class TestTimestat(unittest.TestCase):
         # "Ignore" + "Only" pattern
         t(None, 'work', None, 'o.*t',
           {'something_else': 540.0})
+
+
+    ##### Test functions writing the action files #####
+
+    def test_quickadd(self):
+
+        self.create_action_file('')
+
+        with self.assertRaises(Exit) as cm:
+            quickadd(self.options, ''),
+        self.assertExit(cm, 1, 'Empty activity specified.')
+
+        quickadd(self.options, 'mywork')
+        self.assertOutput('"mywork" activity started')
+
+
+    ##### Test the main functions #####
+
+    def test_main(self):
+
+        # Actionfile
+        fd, filename = tempfile.mkstemp()
+        self.tempfile = filename
+        os.write(fd, '')
+        os.close(fd)
+        self.options.actionfile = filename
+        self.options.actionfiles = [filename]
+
+        with self.assertRaises(Exit) as cm:
+            main_core(['nosuchcommand'])
+        self.assertExit(cm, 1, 'Unrecognized command: nosuchcommand.')
 
 
 if __name__ == '__main__':
