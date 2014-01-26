@@ -284,7 +284,7 @@ First let's get some terminology out of the way:
   example above, `mywork` and `myotherwork` are activities.
 - An **action** is something that happens at a certain moment. The
   example above describes three actions:
-  
+
   1. Starting to work on `mywork`;
   2. Stopping to work on `mywork`;
   3. Working 10 minutes on `myotherwork`.
@@ -353,7 +353,7 @@ Action files do not have to be sorted.
 Currently if an activity is started in an action file, it has to be finished in
 that file. This is planned to be changed in the future.
 
-### Comments 
+### Comments
 
 Beside the descriptions of actions, an action file may contain empty
 lines and comment. Comment are marked with a hash mark. A comment is
