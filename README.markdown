@@ -120,18 +120,24 @@ Examples:
           --actionfile=second \
           add 20 programming
 
-
 ### quickadd: perform the "next logical step"
 
 Usage:
 
     timestat [options] quickadd
     timestat [options] quickadd ACTION
+    timestat [options] quickadd %ACTICITY_PATTERN
 
 Switch to the previous state. The step is calculated in the following
 way:
 
-- If `ACTION` is specified, start work on that action. Otherwise:
+- If `ACTION` is specified, start work on that action.
+- If an `ACTICITY_PATTERN` is specified after a percentage sign, find the
+  activities with that pattern. If there is only one, start working on it; if
+  there is more, ask the user which one they meant.
+
+Otherwise (i.e. if no action or activity pattern is specified):
+
 - If an activity is ongoing (according to the action file), stop that activity.
 - If there is no ongoing activity, find out the previous state (either
   'stopped' or a previous activity), and go into that state (i.e.
