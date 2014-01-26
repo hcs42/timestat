@@ -506,6 +506,7 @@ def collect_events(options, happenings):
                        if happening.is_event() ]
 
 
+# Result: {activity (str): seconds (int)}
 def collect_activities(options, events):
     activities = {}
     for event in events:
@@ -640,8 +641,11 @@ def show(options):
             print 'Sum:', time_sum
 
 
-def add_activity(options, activity):
-    actions, happenings, events, activities = collect_everything(options)
+def add_activity(options, activity, everything=None):
+
+    if everything is None:
+        everything = collect_everything(options)
+    actions, happenings, events, activities = everything
 
     if activity == 'stop':
         if len(events) > 0 and events[-1].ongoing:
@@ -667,6 +671,21 @@ def add_activity(options, activity):
         else:
             add(options, activity)
             print '"%s" activity started' % (activity,)
+
+
+def parse_add_cmd_args(args):
+
+    if len(args) == 0:
+        duration, activity = None, None
+    elif len(args) == 1:
+        duration, activity = None, args[0]
+    elif len(args) == 2:
+        duration, activity = args
+    else:
+        print 'ERROR: too many parameters'
+        sys.exit(1)
+    return activity, duration
+
 
 def add(options, action):
     if options.actionfile == 'ALL':
@@ -698,20 +717,59 @@ def list_actionfiles(options):
         print actionfile
 
 
-def quickadd(options, args):
+def expand_activity(activity, activities):
 
-    # If we have an interval, just pass it to "add"
-    if len(args) > 1:
-        add(options, ' '.join(args))
+    if activity[0] == '%':
+        activity = activity[1:]
+        act_hits = sorted(set([act for act in activities
+                               if re.search(activity, act)]))
+        if len(act_hits) == 0:
+            print 'ERROR: no matching activity.'
+            sys.exit(1)
+        elif len(act_hits) == 1:
+            activity = act_hits[0]
+        else:
+            print 'Select the desired match (empty line = cancel):'
+            for i, act in enumerate(act_hits):
+                print '%s: %s' % (i + 1, act)
+            while True:
+                sys.stdout.write('> ')
+                sys.stdout.flush()
+                line = sys.stdin.readline().strip()
+                if line == '':
+                    print 'Cancel.'
+                    sys.exit(0)
+                else:
+                    try:
+                        act_index = int(line)
+                        assert(act_index > 0)
+                        activity = act_hits[act_index - 1]
+                        # Matching activity set; quit this branch and let the
+                        # rest of quickadd() to handle it.
+                        break
+                    except Exception:
+                        print 'Please type one of the numbers above or an ' \
+                              'empty line to cancel.'
+    return activity
+
+
+def quickadd(options, activity, duration):
+
+    actions, happenings, events, activities = collect_everything(options)
+    if activity is not None:
+        activity = expand_activity(activity, activities)
+
+    # If we have a duration, just pass it to "add"
+    if duration is not None:
+        add(options, duration + ' ' + activity)
         return
 
     # If we have an activity, just pass it to "add_activity"
-    if len(args) == 1:
-        add_activity(options, args[0])
+    if activity is not None:
+        add_activity(options, activity)
         return
 
     # If we don't have a parameter...
-    actions, happenings, events, activities = collect_everything(options)
 
     # If there are no events, we don't know what to do
     if len(events) == 0:
@@ -912,6 +970,14 @@ def main():
                    (args[0], num, plural, len(args) - 1))
             sys.exit(1)
 
+    def check_max_args(num):
+        if len(args) - 1 > num:
+            plural = 's' if num >= 2 else ''
+            print ('Error: the "%s" command requires at most %s argument%s '
+                   '(%s was given).' %
+                   (args[0], num, plural, len(args) - 1))
+            sys.exit(1)
+
     if args == []:
         show(options)
     elif args[0] == 'show':
@@ -931,9 +997,12 @@ def main():
         print_object(args[1], options)
     elif args[0] in ('a', 'add'):
         check_min_args(1)
+        check_max_args(2)
         add(options, ' '.join(args[1:]))
     elif args[0] == 'quickadd':
-        quickadd(options, args[1:])
+        check_max_args(2)
+        activity, duration = parse_add_cmd_args(args[1:])
+        quickadd(options, activity, duration)
     elif args[0] in ('e', 'edit'):
         check_args(0)
         edit(options)
