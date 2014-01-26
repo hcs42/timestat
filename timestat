@@ -27,6 +27,7 @@ See README.markdown for more information."""
 
 from __future__ import with_statement
 import datetime
+import errno
 import optparse
 import os
 import re
@@ -1046,8 +1047,32 @@ def main_core(input_args):
         check_args(0)
         sys.argv = sys.argv[0:1] # unittest reads sys.argv
         unittest.main()
+    elif args[0] in ('test_cover', 'test_coverage'):
+        check_args(0)
+        run_coverage()
     else:
         raise Exit(1, 'Unrecognized command: %s.', args[0])
+
+
+def call(cmd):
+    try:
+        return subprocess.call(cmd)
+    except OSError as e:
+        raise Exit(1, 'The operating system returned error "%s" for the '
+                      'following command:\n'
+                      '%s', (errno.errorcode[e.errno], cmd))
+
+def run_coverage():
+    try:
+        call(['coverage', 'run', sys.argv[0], 'test'])
+        call(['coverage', 'report'])
+        call(['coverage', 'html'])
+        wl('Coverage report ready (open htmlcov/index.html).')
+    except Exit as e:
+        e.msg += '''
+Probably this means that "coverage" is not installed. You can install coverage
+with "pip install coverage" (you may also need "sudo").'''
+        raise e
 
 
 def main():
