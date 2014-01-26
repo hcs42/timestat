@@ -45,11 +45,11 @@ class Exit(Exception):
             msg = msg % data
         self.msg = msg
 
-    
+
 ##### Helper functions: printing text #####
 
 
-def w_core(s):
+def w_core(s): # pragma: no cover
     sys.stdout.write(s)
     sys.stdout.flush()
 
@@ -102,9 +102,7 @@ def str_to_date(s):
                    int(r.group(1)),
                    int(r.group(2)))
 
-
-    print 'Not a valid date:', s
-    sys.exit(1)
+    raise Exit(1, 'Not a valid date: %s', s)
 
 
 def str_to_datetime(s):
@@ -213,15 +211,14 @@ def editor_to_editor_list(editor):
         # backslash, and it should be added to the current argument.
         if editor[i] == '\\':
             if len(editor) <=  i + 1:
-                print ('ERROR: Unescaped backslash in $EDITOR should not be '
-                       'the final character.')
-                sys.exit(1)
+                raise Exit(1, 'Unescaped backslash in $EDITOR should not be '
+                              'the final character.')
             i += 1
             if editor[i] in [' ', '\\']:
                 current_arg.append(editor[i])
             else:
-                print 'ERROR: Unexpected character after backslash in $EDITOR.'
-                sys.exit(1)
+                raise Exit(1, 'Unexpected character after backslash in '
+                              '$EDITOR.')
         # If a space is found, a new argument should be started.
         elif editor[i] == ' ':
             if current_arg != []:
@@ -740,7 +737,7 @@ def edit(options):
         actionfile_names = [options.actionfile]
     editor = os.getenv('EDITOR', 'vi')
     editor_list = editor_to_editor_list(editor)
-    subprocess.call(editor_list + actionfile_names)
+    call(editor_list + actionfile_names)
 
 
 def list_actionfiles(options):
@@ -780,7 +777,7 @@ def expand_activity(activity, activities):
                         # rest of quickadd() to handle it.
                         break
                     except Exception:
-                        wl('Please type one of the numbers above or an ' 
+                        wl('Please type one of the numbers above or an '
                            'empty line to cancel.')
     return activity
 
@@ -818,7 +815,7 @@ def quickadd(options, activity, duration=None):
     # If we had already been doing something, let's resume that activity.
     elif (len(events) > 1) and (events[-2].stoptime == events[-1].starttime):
         add(options, events[-2].activity)
-        wl('"%s" activity resumed, "%s" activity stopped' % 
+        wl('"%s" activity resumed, "%s" activity stopped' %
            (events[-2].activity, events[-1].activity))
 
     # Otherwise let's stop (i.e. resume the 'stopped' state that we had before
@@ -1106,6 +1103,15 @@ class TestTimestat(unittest.TestCase):
         def w_core(s):
             self.output += s
 
+        # Override datetime.date.today
+        # (Source: http://stackoverflow.com/a/4482067/17916)
+        class NewDate(datetime.date):
+            @classmethod
+            def today(cls):
+                return cls(1920, 1, 2)
+        datetime.date = NewDate
+
+        # Fill in the options
         class Options:
             pass
         self.options = Options()
@@ -1121,6 +1127,7 @@ class TestTimestat(unittest.TestCase):
     def tearDown(self):
         if self.tmpfile != '':
             os.remove(self.tmpfile)
+        self.assertOutput('')
 
     ##### Helper functions #####
 
@@ -1148,7 +1155,55 @@ class TestTimestat(unittest.TestCase):
 
     ##### Test pure functions #####
 
-    def test_hhmm_to_mins(self):
+    def test_w(self):
+
+        w('a')
+        self.assertOutput('a')
+
+        w('%s', 'b')
+        self.assertOutput('b')
+
+        wl('c')
+        self.assertOutput('c')
+
+        wl('%s', 'd')
+        self.assertOutput('d')
+
+        wl('%s', '%d')
+        self.assertOutput('%d')
+
+    def test_timedelta_to_seconds(self):
+        td = datetime.timedelta(seconds=148)
+        self.assertEqual(timedelta_to_seconds(td), 148)
+
+    def test_seconds_to_timedelta(self):
+        self.assertEqual(seconds_to_timedelta(148),
+                         datetime.timedelta(seconds=148))
+
+    def test_str_to_date(self):
+
+        d = datetime.date
+        self.assertEqual(str_to_date('t'), d(1920, 1, 2))
+        self.assertEqual(str_to_date('y'), d(1920, 1, 1))
+        self.assertEqual(str_to_date('yy'), d(1919, 12, 31))
+        self.assertEqual(str_to_date('yyy'), d(1919, 12, 30))
+        self.assertEqual(str_to_date('yyyy'), d(1919, 12, 29))
+        self.assertEqual(str_to_date('1941-03-26'), d(1941, 3, 26))
+        self.assertEqual(str_to_date('03-26'), d(1920, 3, 26))
+
+        with self.assertRaises(Exit) as cm:
+            str_to_date('03'),
+        self.assertExit(cm, 1, 'Not a valid date: 03')
+
+    def test_str_to_datetime(self):
+        self.assertEqual(str_to_datetime('1952-03-11 04:42:42'),
+                         datetime.datetime(1952, 3, 11, 4, 42, 42))
+
+    def test_datetime_to_str(self):
+        day = datetime.datetime(1952, 3, 11, 4, 42, 42)
+        self.assertEqual(datetime_to_str(day), '1952-03-11 04:42:42')
+
+    def test_hhmm_to_seconds(self):
 
         self.assertEqual(hhmm_to_seconds('0'), 0)
         self.assertEqual(hhmm_to_seconds('1'), 60)
@@ -1158,8 +1213,11 @@ class TestTimestat(unittest.TestCase):
         self.assertEqual(hhmm_to_seconds('1:40'), 60 * 100)
         self.assertEqual(hhmm_to_seconds('120:10'), 60 * 7210)
 
+        self.assertEqual(hhmm_to_seconds('00:00:00'), 0)
+        self.assertEqual(hhmm_to_seconds('1:40:00'), 60 * 100)
+        self.assertEqual(hhmm_to_seconds('120:10:00'), 60 * 7210)
 
-    def test_mins_to_hhmm(self):
+    def test_seconds_to_hhmm(self):
 
         self.assertEqual(seconds_to_hhmm(60 * 0), '00:00')
         self.assertEqual(seconds_to_hhmm(60 * 1), '00:01')
@@ -1170,6 +1228,39 @@ class TestTimestat(unittest.TestCase):
         self.assertEqual(seconds_to_hhmm(- 60 * 100), '-01:40')
         self.assertEqual(seconds_to_hhmm(- 60 * 7210), '-120:10')
 
+        # Test show_seconds == True
+
+        def f(*args):
+            return seconds_to_hhmm(*args, show_seconds=True)
+
+        self.assertEqual(f(60 * 0), '00:00:00')
+        self.assertEqual(f(60 * 1), '00:01:00')
+        self.assertEqual(f(60 * 100), '01:40:00')
+        self.assertEqual(f(60 * 7210), '120:10:00')
+
+        self.assertEqual(f(- 60 * 1), '-00:01:00')
+        self.assertEqual(f(- 60 * 100), '-01:40:00')
+        self.assertEqual(f(- 60 * 7210), '-120:10:00')
+
+    def test_editor_to_editor_list(self):
+        e = editor_to_editor_list
+        self.assertEqual(e('gvim'), ['gvim'])
+        self.assertEqual(e('vim arg1 arg2'), ['vim', 'arg1', 'arg2'])
+        self.assertEqual(e('vim long\\ argument'), ['vim', 'long argument'])
+        self.assertEqual(e('vim argument\\\\with\\\\backslash'),
+                         ['vim', 'argument\\with\\backslash'])
+        self.assertEqual(e('/home/My\\ Name/My\\ Editor long\\ argument'),
+                         ['/home/My Name/My Editor', 'long argument'])
+
+        with self.assertRaises(Exit) as cm:
+            e('vim\\')
+        self.assertExit(cm, 1, 'Unescaped backslash in $EDITOR should not be '
+                               'the final character.')
+
+        with self.assertRaises(Exit) as cm:
+            e('vim\\x')
+        self.assertExit(cm, 1, 'Unexpected character after backslash in '
+                               '$EDITOR.')
 
     def test_split_comment(self):
 
@@ -1206,7 +1297,7 @@ class TestTimestat(unittest.TestCase):
         # Actionfile
         filename = self.create_action_file('''
                        [2000-01-01 00:00:00] mywork
-                       
+
                        # Comment
                        [2000-01-01 00:10:00] myotherwork
                        [2000-01-01 00:12:00] increase-target mywork 5
