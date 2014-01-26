@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python3
 
 # This file is part of Timestat.
 #
@@ -25,7 +25,6 @@ See README.markdown for more information."""
 ##### Imports #####
 
 
-from __future__ import with_statement
 import datetime
 import errno
 import optparse
@@ -450,7 +449,7 @@ def parse_actionfile(filename):
                              int(r.group('second')))
                     process_actionfile_line(dt, r.group('text'), actions,
                                             source)
-                except Exception, e:
+                except Exception as e:
                     wl('WARNING: Incorrect line in file %s line %s: %s',
                        filename, lnum, line)
     return actions
@@ -605,30 +604,30 @@ def show_weekly_sum(options):
         wl('%s%s%s',
            k,                             # year-week
            (' ' if d[k] >= 3600 else ''),  # space
-           'x' * (d[k] / 3600))           # number of hours
+           'x' * (d[k] // 3600))           # number of hours
 
 
 def show_status(options):
     actions, happenings, events, activities = collect_everything(options)
 
     if len(events) == 0:
-        print 'No event found.'
+        print('No event found.')
 
     else:
         event = events[-1]
-        print 'State:', 'on' if event.ongoing else 'off'
-        print 'Current' if event.ongoing else 'Last', 'activity:', \
-              event.activity
-        print 'Start time:', event.starttime.strftime('%H:%M')
+        print('State:', 'on' if event.ongoing else 'off')
+        print('Current' if event.ongoing else 'Last', 'activity:',
+              event.activity)
+        print('Start time:', event.starttime.strftime('%H:%M'))
 
         if event.ongoing:
-            print 'Current time:', event.stoptime.strftime('%H:%M')
-            print 'Time since started:', \
-                   seconds_to_hhmm(event.timelen, options.seconds)
+            print('Current time:', event.stoptime.strftime('%H:%M'))
+            print('Time since started:',
+                   seconds_to_hhmm(event.timelen, options.seconds))
         else:
-            print 'Stop time:', event.stoptime.strftime('%H:%M')
-            print 'Time length:', \
-                  seconds_to_hhmm(event.timelen, options.seconds)
+            print('Stop time:', event.stoptime.strftime('%H:%M'))
+            print('Time length:',
+                  seconds_to_hhmm(event.timelen, options.seconds))
 
 
 def show_targets(options):
@@ -639,25 +638,25 @@ def show_targets(options):
         actual_timelen = target_result['actual_timelen']
         def show(timelen):
             return seconds_to_hhmm(timelen, options.seconds)
-        print 'Target name:', target_name
-        print 'Target time:', show(target_timelen)
-        print 'Actual time:', show(actual_timelen)
-        print 'Difference:',  show(actual_timelen - target_timelen)
-        print
+        print('Target name:', target_name)
+        print('Target time:', show(target_timelen))
+        print('Actual time:', show(actual_timelen))
+        print('Difference:',  show(actual_timelen - target_timelen))
+        print()
 
 def print_object(name, options):
     actions, happenings, events, activities = collect_everything(options)
 
     if name == 'activities':
         for item in activities.items():
-            print item
+            print(item)
     else:
         l = (actions if name == 'actions' else
              happenings if name == 'happenings' else
              events if name == 'events' else
              ['Object unknown: %s' % name])
         for item in l:
-            print item
+            print(item)
 
 def show(options):
     if options.weekly_sum:
@@ -669,9 +668,9 @@ def show(options):
         if options.current:
             if len(events) > 0 and events[-1].ongoing:
                 event = events[-1]
-                print '%s: %s' % (event.activity,
+                print('%s: %s' % (event.activity,
                                  seconds_to_hhmm(event.timelen,
-                                                 options.seconds))
+                                                 options.seconds)))
 
         else:
             if not options.sum:
@@ -679,11 +678,11 @@ def show(options):
                 for key, value in activities.items():
                     d2[key] = seconds_to_hhmm(value, options.seconds)
                 for key, value in sorted(d2.items()):
-                    print '%s: %s' % (key, value)
+                    print('%s: %s' % (key, value))
 
             time_sum = sum(activities.values())
             time_sum = seconds_to_hhmm(time_sum, options.seconds)
-            print 'Sum:', time_sum
+            print('Sum:', time_sum)
 
 
 def add_activity(options, activity, everything=None):
@@ -727,14 +726,14 @@ def parse_add_cmd_args(args):
     elif len(args) == 2:
         duration, activity = args
     else:
-        print 'ERROR: too many parameters'
+        print('ERROR: too many parameters')
         sys.exit(1)
     return activity, duration
 
 
 def add(options, action):
     if options.actionfile == 'ALL':
-        print 'Error: Action file "ALL" is not accepted by "add".'
+        print('Error: Action file "ALL" is not accepted by "add".')
         sys.exit(1)
 
     dt = get_now()
@@ -744,7 +743,7 @@ def add(options, action):
         f.write(text)
         f.write('\n')
         if options.verbose:
-            print actionfile_name, 'extended with:', text
+            print(actionfile_name, 'extended with:', text)
 
 
 def edit(options):
@@ -759,7 +758,7 @@ def edit(options):
 
 def list_actionfiles(options):
     for actionfile in options.actionfiles:
-        print actionfile
+        print(actionfile)
 
 
 def expand_activity(activity, activities):
@@ -981,11 +980,11 @@ Commands:
             pass
         else:
             if match_count == 0:
-                print 'Error: Cannot find action file in action file list!'
+                print('Error: Cannot find action file in action file list!')
             else:
-                print 'Error: More than one action files match!'
-            print 'Action file:', options.actionfile
-            print 'Action file list:', options.actionfiles
+                print('Error: More than one action files match!')
+            print('Action file:', options.actionfile)
+            print('Action file list:', options.actionfiles)
             sys.exit(1)
 
     return options, args
@@ -1101,7 +1100,7 @@ def run_unittest(test_case=None):
 
     if test_case == None:
         sys.argv = sys.argv[0:1] # unittest reads sys.argv
-        unittest.main()
+        unittest.main(verbosity=0)
     else:
         suite = unittest.TestSuite()
         suite.addTest(TestTimestat(test_case))
@@ -1161,7 +1160,6 @@ class TestTimestat(unittest.TestCase):
             def flush(_):
                 pass
 
-        #self.real_stdout = sys.stdout()
         self.real_stdout = sys.stdout
         self.real_stderr = sys.stderr
         sys.stdout = StdoutMock()
@@ -1199,7 +1197,11 @@ class TestTimestat(unittest.TestCase):
         self.maxDiff = 2000
 
     def tearDown(self):
+        sys.stdout = self.real_stdout
+        sys.stderr = self.real_stderr
+
         self.clean_tmpfile()
+
         if self.output != '': # pragma nocover
             raise AssertionError(
                       'self.output contained the following line after test '
@@ -1218,13 +1220,13 @@ class TestTimestat(unittest.TestCase):
         was raised."""
         self.assertOutput('')
         e = context_manager.exception
-        self.assertEquals(e.retcode, expected_retcode)
-        self.assertEquals(e.msg, expected_msg)
+        self.assertEqual(e.retcode, expected_retcode)
+        self.assertEqual(e.msg, expected_msg)
 
     def assertOutput(self, *expected):
         """Assert that the given output was printed."""
         try:
-            self.assertEquals(self.output.strip(), '\n'.join(expected).strip())
+            self.assertEqual(self.output.strip(), '\n'.join(expected).strip())
         finally:
             # If the assertion fails, let's still make the output empty,
             # otherwise tearDown will complain, which is unnecessary, since
@@ -1236,7 +1238,7 @@ class TestTimestat(unittest.TestCase):
         self.clean_tmpfile()
         fd, filename = tempfile.mkstemp()
         self.tmpfile = filename
-        os.write(fd, content)
+        os.write(fd, bytes(content, 'UTF-8'))
         os.close(fd)
         self.options.actionfile = filename
         self.options.actionfiles = [filename]
@@ -1487,10 +1489,10 @@ class TestTimestat(unittest.TestCase):
         def t(text, expected_result, expected_type, expected_activity,
               expected_timelen):
             action = Action(text=text)
-            self.assertEquals(action.calc(), expected_result)
-            self.assertEquals(action.type, expected_type)
-            self.assertEquals(action.activity, expected_activity)
-            self.assertEquals(action.timelen, expected_timelen)
+            self.assertEqual(action.calc(), expected_result)
+            self.assertEqual(action.type, expected_type)
+            self.assertEqual(action.activity, expected_activity)
+            self.assertEqual(action.timelen, expected_timelen)
 
         t('', False, None, None, None)
         t('stop', True, 'stop', None, None)
