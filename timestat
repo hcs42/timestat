@@ -134,13 +134,6 @@ def hhmm_to_seconds(s):
 
     return hours * 3600 + minutes * 60 + seconds
 
-    r = re.match('^(?:(\d+):)?(\d+)$', s)
-    if r:
-        hours = int(r.group(1)) if r.group(1) is not None else 0
-        minutes = int(r.group(2))
-        return (hours * 60 + minutes) * 60
-
-
 
 def seconds_to_hhmm(seconds, show_seconds=False, negative=False):
     if seconds < 0:
