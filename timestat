@@ -49,20 +49,12 @@ class Exit(Exception):
 ##### Helper functions: printing text #####
 
 
-def w_core(s): # pragma: no cover
+def wl(s, *data):
+    if data is not None:
+        s = s % data
     sys.stdout.write(s)
+    sys.stdout.write('\n')
     sys.stdout.flush()
-
-def w(s, data=None):
-    if data is not None:
-        s = s % data
-    w_core(s)
-
-def wl(s, data=None):
-    if data is not None:
-        s = s % data
-    w_core(s)
-    w_core('\n')
 
 
 ##### Helper functions: date and time #####
@@ -290,27 +282,42 @@ class Action(Happening):
     def is_action(self):
         return True
 
-    def get_action_file(self):
-        return self.source[0]
+    def get_source(self):
+        if self.source is None:
+            return '<no_source>'
+        else:
+            return 'file %s line %s' % (self.source[0], self.source[1])
 
     def __lt__(self, other):
-        if self.type == 'interval':
+
+        if ((self.type == 'interval') and not (other.type == 'interval')):
             return True # intervals first
-        elif other.type == 'interval':
+        elif (not (self.type == 'interval') and (other.type == 'interval')):
             return False # intervals first
         else:
             return self.datetime < other.datetime
 
     def __gt__(self, other):
+        # This function is not implemented, so I added an "assert False" to
+        # make sure it is not accidentaly used. When it would be useful, it can
+        # be properly implemented and tested.
         assert False
 
     def __le__(self, other):
+        # This function is not implemented, so I added an "assert False" to
+        # make sure it is not accidentaly used. When it would be useful, it can
+        # be properly implemented and tested.
         assert False
 
     def __ge__(self, other):
+        # This function is not implemented, so I added an "assert False" to
+        # make sure it is not accidentaly used. When it would be useful, it can
+        # be properly implemented and tested.
         assert False
 
     def calc(self):
+        """This function fills in self.type, self.accidentaly and self.timelen,
+        based on self.text."""
         r = ReMatch()
         if self.text == '':
             return False
@@ -328,8 +335,8 @@ class Action(Happening):
             self.timelen = hhmm_to_seconds(r.group(1))
             self.activity = r.group(2)
         else:
-            print 'WARNING: Incorrect action in file %s line %s:' % \
-                  self.source, text
+            wl('WARNING: Incorrect action in %s: %s',
+               self.get_source(), self.text)
             return False
         return True
 
@@ -346,14 +353,18 @@ class Event(Happening):
     # - activity
     # - timelen (seconds)
     # - ongoing
+    # - is_interval_action (bool): the event was created from an interval action
 
-    fields = ('starttime', 'stoptime', 'activity', 'timelen', 'ongoing')
+    fields = ('starttime', 'stoptime', 'activity', 'timelen', 'ongoing',
+              'is_interval_action')
 
     def __init__(self, **kwargs):
         for field in Event.fields:
             setattr(self, field, kwargs.get(field))
         if self.ongoing is None:
             self.ongoing = False
+        if self.is_interval_action is None:
+            self.is_interval_action = False
 
     def __eq__(self, other):
         if other.__class__ != Event:
@@ -378,6 +389,18 @@ class Event(Happening):
         return True
 
     def between(self, since, until):
+        """Returns whether the start time of this event is between `since` and
+        `until`."""
+        # Maybe we should return the event only if the whole event is inside
+        # the given range, i.e. if
+        #     since <= starttime <= stoptime <= until
+        # is true?
+        #
+        # Or maybe we should return it if there is an overlap between the
+        # since-until range and the event, i.e. if
+        #     (since <= starttime <= until) or
+        #     (since <= stoptime <= until)
+        # holds?
         return ((since == None or self.starttime.date() >= since) and
                 (until == None or self.starttime.date() <= until))
 
@@ -403,8 +426,6 @@ def process_actionfile_line(dt, text, actions, source):
 def parse_actionfile(filename):
     actions = []
     with open(filename) as f:
-        #for line_number, line in enumerate(f):
-        #    line_number += 1
         for lnum, line in enumerate(f):
             source = (filename, lnum)
             line = line.strip()
@@ -430,9 +451,8 @@ def parse_actionfile(filename):
                     process_actionfile_line(dt, r.group('text'), actions,
                                             source)
                 except Exception, e:
-                    print 'WARNING: Incorrect line in file %s line %s:' %\
-                          source, line
-                    print e
+                    wl('WARNING: Incorrect line in file %s line %s: %s',
+                       filename, lnum, line)
     return actions
 
 
@@ -469,12 +489,13 @@ def collect_happenings(options, actions, now=None):
 
     happenings = []
 
-    def add_event(activity, starttime, timelen):
+    def add_event(activity, starttime, timelen, is_interval_action):
         """Adds an activity to the dict."""
         if is_activity_needed(activity, options):
             event = Event(activity=activity,
                           starttime=starttime,
-                          timelen=timelen)
+                          timelen=timelen,
+                          is_interval_action=is_interval_action)
             if timelen is not None:
                 event.stoptime = event.starttime + \
                     seconds_to_timedelta(timelen)
@@ -487,7 +508,8 @@ def collect_happenings(options, actions, now=None):
         # Find the last event
         i = len(happenings) - 1
         while i >= 0:
-            if happenings[i].is_event():
+            if (happenings[i].is_event() and
+                not happenings[i].is_interval_action):
                 last_event = happenings[i]
                 break
             i -= 1
@@ -505,10 +527,10 @@ def collect_happenings(options, actions, now=None):
 
     for action in actions:
         if action.type == 'interval':
-            add_event(action.activity, action.datetime, action.timelen)
+            add_event(action.activity, action.datetime, action.timelen, True)
         elif action.type == 'start':
             close_prev_event(action.datetime, ongoing=False)
-            add_event(action.activity, action.datetime, None)
+            add_event(action.activity, action.datetime, None, False)
         elif action.type == 'stop':
             close_prev_event(action.datetime, ongoing=False)
         elif action.type == 'target':
@@ -580,8 +602,10 @@ def show_weekly_sum(options):
         d.setdefault(x, 0)
         d[x] += event.timelen
     for k in sorted(d.keys()):
-        print k,
-        print 'x' * (d[k] / 3600)
+        wl('%s%s%s',
+           k,                             # year-week
+           (' ' if d[k] >= 3600 else ''),  # space
+           'x' * (d[k] / 3600))           # number of hours
 
 
 def show_status(options):
@@ -670,28 +694,28 @@ def add_activity(options, activity, everything=None):
 
     if activity == 'stop':
         if len(events) > 0 and events[-1].ongoing:
-            wl('"%s" activity stopped' % (events[-1].activity,))
+            wl('"%s" activity stopped', events[-1].activity)
             add(options, activity)
         else:
             wl('Do nothing: there is nothing to stop.')
     elif len(events) == 0:
         add(options, activity)
-        wl('"%s" activity started' % (activity,))
+        wl('"%s" activity started', activity)
     elif events[-1].ongoing:
         if events[-1].activity == activity:
-            wl('Do nothing: "%s" activity is going on anyway.' %
-               (activity,))
+            wl('Do nothing: "%s" activity is going on anyway.',
+               activity)
         else:
             add(options, activity)
-            wl('"%s" activity started, "%s" activity stopped' %
-               (activity, events[-1].activity))
+            wl('"%s" activity started, "%s" activity stopped',
+               activity, events[-1].activity)
     else:
         if events[-1].activity == activity:
             add(options, activity)
-            wl('"%s" activity resumed' % (activity,))
+            wl('"%s" activity resumed', activity)
         else:
             add(options, activity)
-            wl('"%s" activity started' % (activity,))
+            wl('"%s" activity started', activity)
 
 
 def parse_add_cmd_args(args):
@@ -754,7 +778,7 @@ def expand_activity(activity, activities):
         else:
             wl('Select the desired match (empty line = cancel):')
             for i, act in enumerate(act_hits):
-                wl('%s: %s' % (i + 1, act))
+                wl('%s: %s', i + 1, act)
             while True:
                 sys.stdout.write('> ')
                 sys.stdout.flush()
@@ -800,7 +824,7 @@ def quickadd(options, activity, duration=None):
     # If the last event is not ongoing, let's resume it
     elif not events[-1].ongoing:
         add(options, events[-1].activity)
-        wl('"%s" activity resumed' % (events[-1].activity,))
+        wl('"%s" activity resumed', events[-1].activity)
 
     # If the last event is ongoing, let's examine what we were doing at the
     # moment when this last event was started!
@@ -808,14 +832,14 @@ def quickadd(options, activity, duration=None):
     # If we had already been doing something, let's resume that activity.
     elif (len(events) > 1) and (events[-2].stoptime == events[-1].starttime):
         add(options, events[-2].activity)
-        wl('"%s" activity resumed, "%s" activity stopped' %
-           (events[-2].activity, events[-1].activity))
+        wl('"%s" activity resumed, "%s" activity stopped',
+           events[-2].activity, events[-1].activity)
 
     # Otherwise let's stop (i.e. resume the 'stopped' state that we had before
     # the current activity.).
     else:
         add(options, 'stop')
-        wl('"%s" activity stopped' % events[-1].activity)
+        wl('"%s" activity stopped', events[-1].activity)
 
 
 def print_full_help():
@@ -939,9 +963,8 @@ Commands:
     elif os.getenv('ACTIONFILES') is not None:
         options.actionfiles = os.getenv('ACTIONFILES').split(':')
     else:
-        print 'You should set either the ACTIONFILES environment variable or '
-        print 'give --actionfiles argument!'
-        sys.exit(1)
+        # If there is no action file, don't proceed.
+        return options, args
 
     # Prepare: actionfile
     if options.actionfile is None:
@@ -999,6 +1022,32 @@ def main_core(input_args):
                    (args[0], num, plural, len(args) - 1))
             sys.exit(1)
 
+    # Commands that don't need action files
+    if args == []:
+        pass
+    elif args[0] == 'full-help':
+        check_args(0)
+        print_full_help()
+        return
+    elif args[0] in ('t', 'test'):
+        check_min_args(0)
+        check_max_args(1)
+        if len(args) == 1:
+            run_unittest()
+        else:
+            run_unittest(args[1])
+        return
+    elif args[0] in ('tc', 'test_coverage'):
+        check_args(0)
+        run_coverage()
+        return
+
+    # Check action files
+    if options.actionfiles is None:
+        raise Exit(1, 'You should set either the ACTIONFILES environment '
+                      'variable or give --actionfiles argument!')
+
+    # Commands that do need action files
     if args == []:
         show(options)
     elif args[0] == 'show':
@@ -1030,16 +1079,6 @@ def main_core(input_args):
     elif args[0] == 'list':
         check_args(0)
         list_actionfiles(options)
-    elif args[0] == 'full-help':
-        check_args(0)
-        print_full_help()
-    elif args[0] == 'test':
-        check_args(0)
-        sys.argv = sys.argv[0:1] # unittest reads sys.argv
-        unittest.main()
-    elif args[0] in ('test_cover', 'test_coverage'):
-        check_args(0)
-        run_coverage()
     else:
         raise Exit(1, 'Unrecognized command: %s.', args[0])
 
@@ -1051,6 +1090,24 @@ def call(cmd):
         raise Exit(1, 'The operating system returned error "%s" for the '
                       'following command:\n'
                       '%s', (errno.errorcode[e.errno], cmd))
+
+
+def run_unittest(test_case=None):
+    """Runs the given test case. If no test case is specified, all tests are
+    executed.
+
+    After running the tests, it exits with 0 if all tests passed, and exits
+    with 1 otherwise."""
+
+    if test_case == None:
+        sys.argv = sys.argv[0:1] # unittest reads sys.argv
+        unittest.main()
+    else:
+        suite = unittest.TestSuite()
+        suite.addTest(TestTimestat(test_case))
+        res = unittest.TextTestRunner().run(suite)
+        sys.exit(0 if res.wasSuccessful() else 1)
+
 
 def run_coverage():
     try:
@@ -1088,39 +1145,71 @@ class TestTimestat(unittest.TestCase):
     ##### setUp and tearDown #####
 
     def setUp(self):
+
+        # Set up tempfile variable (used also in tearDown)
         self.tmpfile = ''
 
-        # Override the default 'print' function
-        self.output = ''
-        global w_core
-        def w_core(s):
-            self.output += s
+        # Empty environment variables
+        os.environ['EDITOR'] = ''
+        os.environ['ACTIONFILES'] = ''
 
-        # Override datetime.date.today
+        # Mock stdout
+        self.output = ''
+        class StdoutMock():
+            def write(_, s):
+                self.output += s
+            def flush(_):
+                pass
+
+        #self.real_stdout = sys.stdout()
+        self.real_stdout = sys.stdout
+        self.real_stderr = sys.stderr
+        sys.stdout = StdoutMock()
+        sys.stderr = StdoutMock()
+
+        # Mock datetime.date.today
         # (Source: http://stackoverflow.com/a/4482067/17916)
         class NewDate(datetime.date):
             @classmethod
             def today(cls):
-                return cls(1920, 1, 2)
+                return cls(2000, 1, 1)
         datetime.date = NewDate
 
         # Fill in the options
         class Options:
             pass
         self.options = Options()
-        self.options.ignore_activities = None
-        self.options.only_activities = None
-        self.options.ignore_activities_pattern = None
-        self.options.only_activities_pattern = None
+        self.options.actionfiles = None
+        self.options.verbose = False
         self.options.since = None
         self.options.until = None
-        self.options.verbose = False
+        self.options.today = False
+        self.options.yesterday = False
+        self.options.weekly_sum = False
+        self.options.sum = False
+        self.options.ignore_activities = None
+        self.options.ignore_activities_pattern = None
+        self.options.only_activities = None
+        self.options.only_activities_pattern = None
+        self.options.current = False
+        self.options.seconds = False
+        self.options.actionfile = None
+
+        # Set unittest settings
         self.maxDiff = 2000
 
     def tearDown(self):
+        self.clean_tmpfile()
+        if self.output != '': # pragma nocover
+            raise AssertionError(
+                      'self.output contained the following line after test '
+                      'case execution:\n' +
+                      self.output.strip())
+
+    def clean_tmpfile(self):
         if self.tmpfile != '':
             os.remove(self.tmpfile)
-        self.assertOutput('')
+        self.tmpfile = ''
 
     ##### Helper functions #####
 
@@ -1132,29 +1221,31 @@ class TestTimestat(unittest.TestCase):
         self.assertEquals(e.retcode, expected_retcode)
         self.assertEquals(e.msg, expected_msg)
 
-    def assertOutput(self, expected):
+    def assertOutput(self, *expected):
         """Assert that the given output was printed."""
-        self.assertEquals(self.output.strip(), expected.strip())
-        self.output = ''
+        try:
+            self.assertEquals(self.output.strip(), '\n'.join(expected).strip())
+        finally:
+            # If the assertion fails, let's still make the output empty,
+            # otherwise tearDown will complain, which is unnecessary, since
+            # assertOutput compains anyway.
+            self.output = ''
 
     def create_action_file(self, content):
+
+        self.clean_tmpfile()
         fd, filename = tempfile.mkstemp()
-        self.tempfile = filename
+        self.tmpfile = filename
         os.write(fd, content)
         os.close(fd)
         self.options.actionfile = filename
         self.options.actionfiles = [filename]
+        os.environ['ACTIONFILES'] = filename
         return filename
 
     ##### Test pure functions #####
 
     def test_w(self):
-
-        w('a')
-        self.assertOutput('a')
-
-        w('%s', 'b')
-        self.assertOutput('b')
 
         wl('c')
         self.assertOutput('c')
@@ -1164,6 +1255,9 @@ class TestTimestat(unittest.TestCase):
 
         wl('%s', '%d')
         self.assertOutput('%d')
+
+        wl('%s: %s', 'a', 'b')
+        self.assertOutput('a: b')
 
     def test_timedelta_to_seconds(self):
         td = datetime.timedelta(seconds=148)
@@ -1176,13 +1270,13 @@ class TestTimestat(unittest.TestCase):
     def test_str_to_date(self):
 
         d = datetime.date
-        self.assertEqual(str_to_date('t'), d(1920, 1, 2))
-        self.assertEqual(str_to_date('y'), d(1920, 1, 1))
-        self.assertEqual(str_to_date('yy'), d(1919, 12, 31))
-        self.assertEqual(str_to_date('yyy'), d(1919, 12, 30))
-        self.assertEqual(str_to_date('yyyy'), d(1919, 12, 29))
+        self.assertEqual(str_to_date('t'), d(2000, 1, 1))
+        self.assertEqual(str_to_date('y'), d(1999, 12, 31))
+        self.assertEqual(str_to_date('yy'), d(1999, 12, 30))
+        self.assertEqual(str_to_date('yyy'), d(1999, 12, 29))
+        self.assertEqual(str_to_date('yyyy'), d(1999, 12, 28))
         self.assertEqual(str_to_date('1941-03-26'), d(1941, 3, 26))
-        self.assertEqual(str_to_date('03-26'), d(1920, 3, 26))
+        self.assertEqual(str_to_date('03-26'), d(2000, 3, 26))
 
         with self.assertRaises(Exit) as cm:
             str_to_date('03'),
@@ -1255,6 +1349,241 @@ class TestTimestat(unittest.TestCase):
         self.assertExit(cm, 1, 'Unexpected character after backslash in '
                                '$EDITOR.')
 
+    ##### Model classes: actions, events, happenings #####
+
+    def test_Action(self):
+
+        # Test Action.__init__
+        a1 = Action(text=1, type=2, something=3)
+        self.assertEqual(a1.text, 1)
+        self.assertEqual(a1.type, 2)
+        with self.assertRaises(AttributeError) as cm:
+            a1.something
+
+        # Test Action.__eq__, __ne__
+        self.assertFalse(Action() == 'some string')
+        self.assertTrue(Action() != 'some string')
+        a2 = Action(text=1, type=2)
+        a3 = Action(text=2, type=2)
+        self.assertTrue(a1 == a2)
+        self.assertFalse(a1 == a3)
+
+        # Test Action.__str__
+        self.assertEqual(str(a1), '<Action: datetime=None, text=1, type=2, '
+                                  'activity=None, timelen=None, source=None>')
+
+        # Test Action.is_action, is_event
+        self.assertTrue(a1.is_action())
+        self.assertFalse(a1.is_event())
+
+        # Test Action.get_source (let's accept both tuples and lists as
+        # sources)
+        self.assertTrue(a1.get_source(), '<no_source>')
+        a1.source = ('myfile', 42)
+        self.assertTrue(a1.get_source(), 'file myfile line 42')
+        a1.source = ['myfile', 42]
+        self.assertTrue(a1.get_source(), 'file myfile line 42')
+
+        # Test Action.__lt__
+        d1 = str_to_datetime('1920-01-02 00:00:41')
+        d2 = str_to_datetime('1920-01-02 00:00:42')
+        a_1_start    = Action(type='start',    datetime=d1)
+        a_1_stop     = Action(type='stop',     datetime=d1)
+        a_1_interval = Action(type='interval', datetime=d1)
+        a_1_target   = Action(type='target',   datetime=d1)
+        a_2_start    = Action(type='start',    datetime=d2)
+        a_2_stop     = Action(type='stop',     datetime=d2)
+        a_2_interval = Action(type='interval', datetime=d2)
+        a_2_target   = Action(type='target',   datetime=d2)
+
+        # The "interval" comments below mean that the result of __lt__ in that
+        # line can be explained by the fact that an interval action is always
+        # less than a non-interval action.
+        self.assertFalse(a_1_start < a_1_start)
+        self.assertFalse(a_1_start < a_1_stop)
+        self.assertFalse(a_1_start < a_1_interval)
+        self.assertFalse(a_1_start < a_1_target)
+        self.assertTrue (a_1_start < a_2_start)
+        self.assertTrue (a_1_start < a_2_stop)
+        self.assertFalse(a_1_start < a_2_interval)    # Interval
+        self.assertTrue (a_1_start < a_2_target)
+
+        self.assertFalse(a_1_stop < a_1_start)
+        self.assertFalse(a_1_stop < a_1_stop)
+        self.assertFalse(a_1_stop < a_1_interval)
+        self.assertFalse(a_1_stop < a_1_target)
+        self.assertTrue (a_1_stop < a_2_start)
+        self.assertTrue (a_1_stop < a_2_stop)
+        self.assertFalse(a_1_stop < a_2_interval)
+        self.assertTrue (a_1_stop < a_2_target)
+
+        self.assertTrue (a_1_interval < a_1_start)    # Interval
+        self.assertTrue (a_1_interval < a_1_stop)     # Interval
+        self.assertFalse(a_1_interval < a_1_interval)
+        self.assertTrue (a_1_interval < a_1_target)   # Interval
+        self.assertTrue (a_1_interval < a_2_start)
+        self.assertTrue (a_1_interval < a_2_stop)
+        self.assertTrue (a_1_interval < a_2_interval)
+        self.assertTrue (a_1_interval < a_2_target)
+
+        self.assertFalse(a_1_target < a_1_start)
+        self.assertFalse(a_1_target < a_1_stop)
+        self.assertFalse(a_1_target < a_1_interval)
+        self.assertFalse(a_1_target < a_1_target)
+        self.assertTrue (a_1_target < a_2_start)
+        self.assertTrue (a_1_target < a_2_stop)
+        self.assertFalse(a_1_target < a_2_interval)   # Interval
+        self.assertTrue (a_1_target < a_2_target)
+
+        self.assertFalse(a_2_start < a_1_start)
+        self.assertFalse(a_2_start < a_1_stop)
+        self.assertFalse(a_2_start < a_1_interval)
+        self.assertFalse(a_2_start < a_1_target)
+        self.assertFalse(a_2_start < a_2_start)
+        self.assertFalse(a_2_start < a_2_stop)
+        self.assertFalse(a_2_start < a_2_interval)
+        self.assertFalse(a_2_start < a_2_target)
+
+        self.assertFalse(a_2_stop < a_1_start)
+        self.assertFalse(a_2_stop < a_1_stop)
+        self.assertFalse(a_2_stop < a_1_interval)
+        self.assertFalse(a_2_stop < a_1_target)
+        self.assertFalse(a_2_stop < a_2_start)
+        self.assertFalse(a_2_stop < a_2_stop)
+        self.assertFalse(a_2_stop < a_2_interval)
+        self.assertFalse(a_2_stop < a_2_target)
+
+        self.assertTrue (a_2_interval < a_1_start)    # Interval
+        self.assertTrue (a_2_interval < a_1_stop)     # Interval
+        self.assertFalse(a_2_interval < a_1_interval)
+        self.assertTrue (a_2_interval < a_1_target)   # Interval
+        self.assertTrue (a_2_interval < a_2_start)    # Interval
+        self.assertTrue (a_2_interval < a_2_stop)     # Interval
+        self.assertFalse(a_2_interval < a_2_interval) # Interval
+        self.assertTrue (a_2_interval < a_2_target)   # Interval
+
+        self.assertFalse(a_2_target < a_1_start)
+        self.assertFalse(a_2_target < a_1_stop)
+        self.assertFalse(a_2_target < a_1_interval)
+        self.assertFalse(a_2_target < a_1_target)
+        self.assertFalse(a_2_target < a_2_start)
+        self.assertFalse(a_2_target < a_2_stop)
+        self.assertFalse(a_2_target < a_2_interval)
+        self.assertFalse(a_2_target < a_2_target)
+
+        # Test Action.__gt__, __le__, __ge__
+
+        with self.assertRaises(AssertionError):
+            a_1_start > a_1_start
+
+        with self.assertRaises(AssertionError):
+            a_1_start <= a_1_start
+
+        with self.assertRaises(AssertionError):
+            a_1_start >= a_1_start
+
+        # Test Action.calc
+
+        def t(text, expected_result, expected_type, expected_activity,
+              expected_timelen):
+            action = Action(text=text)
+            self.assertEquals(action.calc(), expected_result)
+            self.assertEquals(action.type, expected_type)
+            self.assertEquals(action.activity, expected_activity)
+            self.assertEquals(action.timelen, expected_timelen)
+
+        t('', False, None, None, None)
+        t('stop', True, 'stop', None, None)
+        t('work', True, 'start', 'work', None)
+        t('increase-target work 2', True, 'target', 'work', 2 * 60)
+        t('increase-target work 2:3', True, 'target', 'work', 2 * 3600 + 3 * 60)
+        t('increase-target work 2:3:4', True, 'target', 'work',
+          2 * 3600 + 3 * 60 + 4)
+        t('2 work', True, 'interval', 'work', 2 * 60)
+        t('2:3 work', True, 'interval', 'work', 2 * 3600 + 3 * 60)
+        t('2:3:4 work', True, 'interval', 'work', 2 * 3600 + 3 * 60 + 4)
+        self.assertOutput('')
+
+        t('bad line', False, None, None, None)
+        self.assertOutput('WARNING: Incorrect action in <no_source>: bad line')
+
+        # Test Action.between
+        d1 = str_to_date('1920-01-01')
+        d2 = str_to_date('1920-01-02')
+        d2dt = str_to_datetime('1920-01-02 01:01:01')
+        d3 = str_to_date('1920-01-03')
+        a2 = Action(datetime=d2dt)
+        self.assertFalse(a2.between(d1, d1))
+        self.assertTrue (a2.between(d1, d2))
+        self.assertTrue (a2.between(d1, d3))
+        self.assertTrue (a2.between(d1, None))
+        self.assertFalse(a2.between(d2, d1))
+        self.assertTrue (a2.between(d2, d2))
+        self.assertTrue (a2.between(d2, d3))
+        self.assertTrue (a2.between(d2, None))
+        self.assertFalse(a2.between(d3, d1))
+        self.assertFalse(a2.between(d3, d2))
+        self.assertFalse(a2.between(d3, d3))
+        self.assertFalse(a2.between(d3, None))
+        self.assertFalse(a2.between(None, d1))
+        self.assertTrue (a2.between(None, d2))
+        self.assertTrue (a2.between(None, d3))
+        self.assertTrue (a2.between(None, None))
+
+    def test_Event(self):
+
+        # Test Event.__init__
+        e1 = Event(starttime=1, stoptime=2, something=4)
+        e2 = Event(starttime=1, stoptime=2, ongoing=3, something=4)
+        self.assertEqual(e1.starttime, 1)
+        self.assertEqual(e1.stoptime, 2)
+        self.assertEqual(e1.ongoing, False)
+        self.assertEqual(e2.ongoing, 3)
+        with self.assertRaises(AttributeError) as cm:
+            e1.something
+
+        # Test Event.__eq__, __ne__
+        self.assertFalse(Event() == 'some string')
+        self.assertTrue(Event() != 'some string')
+        e2 = Event(starttime=1, stoptime=2)
+        e3 = Event(starttime=2, stoptime=2)
+        self.assertTrue(e1 == e2)
+        self.assertFalse(e1 == e3)
+
+        # Test Event.__str__
+        self.assertEqual(str(e1), '<Event: starttime=1, stoptime=2, '
+                                  'activity=None, timelen=None, ongoing=False, '
+                                  'is_interval_action=False>')
+
+        # Test Event.is_action, is_event
+        self.assertFalse(e1.is_action())
+        self.assertTrue(e1.is_event())
+
+        # Test Event.between
+        d1 = str_to_date('1920-01-01')
+        d2 = str_to_date('1920-01-02')
+        d2dt = str_to_datetime('1920-01-02 01:01:01')
+        d3 = str_to_date('1920-01-03')
+        e = Event(starttime=d2dt)
+        self.assertFalse(e.between(d1, d1))
+        self.assertTrue (e.between(d1, d2))
+        self.assertTrue (e.between(d1, d3))
+        self.assertTrue (e.between(d1, None))
+        self.assertFalse(e.between(d2, d1))
+        self.assertTrue (e.between(d2, d2))
+        self.assertTrue (e.between(d2, d3))
+        self.assertTrue (e.between(d2, None))
+        self.assertFalse(e.between(d3, d1))
+        self.assertFalse(e.between(d3, d2))
+        self.assertFalse(e.between(d3, d3))
+        self.assertFalse(e.between(d3, None))
+        self.assertFalse(e.between(None, d1))
+        self.assertTrue (e.between(None, d2))
+        self.assertTrue (e.between(None, d3))
+        self.assertTrue (e.between(None, None))
+
+    ##### Action file handling #####
+
     def test_split_comment(self):
 
         self.assertEqual(split_comment(''), ('', ''))
@@ -1271,19 +1600,32 @@ class TestTimestat(unittest.TestCase):
         self.assertEqual(split_comment('abc#def'), ('abc#def', ''))
 
         self.assertEqual(split_comment('abc # def # 123'), ('abc', 'def # 123'))
-        self.assertEqual(split_comment('abc ## def ## 123'), ('abc', '# def ## 123'))
+        self.assertEqual(split_comment('abc ## def ## 123'),
+                         ('abc', '# def ## 123'))
 
         self.assertEqual(split_comment('abc\t#\tdef'), ('abc', 'def'))
         self.assertEqual(split_comment('abc \t # \t def'), ('abc', 'def'))
+
+    def test_process_action_file_line(self):
+        l = []
+
+        process_actionfile_line('datetime', '', l, 'source')
+        self.assertEqual(l, [])
+
+        process_actionfile_line('datetime', 'act # comment', l, 'source')
+        self.assertEqual(l, [Action(datetime='datetime',
+                                    text='act',
+                                    type='start',
+                                    activity='act',
+                                    timelen=None,
+                                    source='source')])
 
     def test_get_categories(self):
 
         self.assertEqual(get_categories('ab'), ['ab'])
         self.assertEqual(get_categories('a/b/c'), ['a', 'a/b', 'a/b/c'])
 
-
-    ##### Test function reading the action files ####
-
+    ##### Functions reading the action files #####
 
     def test_actionfile(self):
 
@@ -1293,6 +1635,7 @@ class TestTimestat(unittest.TestCase):
 
                        # Comment
                        [2000-01-01 00:10:00] myotherwork
+                       [2000-01-01 00:11:00] 4 myotherwork
                        [2000-01-01 00:12:00] increase-target mywork 5
                        [2000-01-01 00:20:00] stop''')
 
@@ -1305,11 +1648,15 @@ class TestTimestat(unittest.TestCase):
             Action(datetime=str_to_datetime("2000-01-01 00:10:00"),
                    text='myotherwork', type='start',
                    activity='myotherwork', source=(filename, 4)),
+            Action(datetime=str_to_datetime("2000-01-01 00:11:00"),
+                   text='4 myotherwork', type='interval',
+                   activity='myotherwork', timelen=60 * 4,
+                   source=(filename, 5)),
             Action(datetime=str_to_datetime("2000-01-01 00:12:00"),
                    text='increase-target mywork 5', type='target',
-                   activity='mywork', timelen=60 * 5, source=(filename, 5)),
+                   activity='mywork', timelen=60 * 5, source=(filename, 6)),
             Action(datetime=str_to_datetime("2000-01-01 00:20:00"),
-                   text='stop', type='stop', source=(filename, 6))]
+                   text='stop', type='stop', source=(filename, 7))]
         self.assertEqual(actual_actions, expected_actions)
 
         # Happenings
@@ -1323,10 +1670,14 @@ class TestTimestat(unittest.TestCase):
                   stoptime=str_to_datetime("2000-01-01 00:20:00"),
                   activity='myotherwork',
                   timelen=60 * 10),
+            Event(starttime=str_to_datetime("2000-01-01 00:11:00"),
+                  stoptime=str_to_datetime("2000-01-01 00:15:00"),
+                  activity='myotherwork',
+                  timelen=60 * 4, is_interval_action=True),
             Action(datetime=str_to_datetime("2000-01-01 00:12:00"),
                    text='increase-target mywork 5', type='target',
                    activity='mywork', timelen=60 * 5,
-                   source=(filename, 5))]
+                   source=(filename, 6))]
         self.assertEqual(actual_happenings, expected_happenings)
 
         # Events
@@ -1339,7 +1690,11 @@ class TestTimestat(unittest.TestCase):
             Event(starttime=str_to_datetime("2000-01-01 00:10:00"),
                   stoptime=str_to_datetime("2000-01-01 00:20:00"),
                   activity='myotherwork',
-                  timelen=60 * 10)]
+                  timelen=60 * 10),
+            Event(starttime=str_to_datetime("2000-01-01 00:11:00"),
+                  stoptime=str_to_datetime("2000-01-01 00:15:00"),
+                  activity='myotherwork',
+                  timelen=60 * 4, is_interval_action=True)]
         self.assertEqual(actual_events, expected_events)
 
         # Activities
@@ -1352,7 +1707,6 @@ class TestTimestat(unittest.TestCase):
         expected_targets = {'mywork': {'target_timelen': 60 * 5,
                                        'actual_timelen': 60 * 10}}
         self.assertEqual(actual_targets, expected_targets)
-
 
     def test_ongoing_activity(self):
 
@@ -1445,8 +1799,16 @@ class TestTimestat(unittest.TestCase):
         t(None, 'work', None, 'o.*t',
           {'something_else': 540.0})
 
+    def test_erroneous_action_file(self):
 
-    ##### Test functions writing the action files #####
+        filename = self.create_action_file('bad_content')
+
+        show(self.options)
+        self.assertOutput(
+            'WARNING: Incorrect line in file %s line 0: bad_content\n'
+            'Sum: 00:00' % filename)
+
+    ##### Functions writing the action files #####
 
     def test_quickadd(self):
 
@@ -1465,16 +1827,51 @@ class TestTimestat(unittest.TestCase):
     def test_main(self):
 
         # Actionfile
-        fd, filename = tempfile.mkstemp()
-        self.tempfile = filename
-        os.write(fd, '')
-        os.close(fd)
-        self.options.actionfile = filename
-        self.options.actionfiles = [filename]
+        self.create_action_file('')
 
         with self.assertRaises(Exit) as cm:
             main_core(['nosuchcommand'])
         self.assertExit(cm, 1, 'Unrecognized command: nosuchcommand.')
+
+#    def test_show_status(self):
+#
+#        # Actionfile
+#        self.create_action_file('''[1999-01-01 00:00:00] mywork''')
+#
+#        main_core(['show-status'])
+#        self.assertOutput('State: on',
+#                          'Current activity: mywork',
+#                          'Start time: 00:00',
+#                          'Current time: 16:24',
+#                          'Time since started: 132112:24')
+
+    def test_show_weekly_sum(self):
+
+        # Actionfile
+        self.create_action_file('''[1872-03-18 20:00:00] mywork
+                                   [1872-03-18 20:20:00] myotherwork
+                                   [1872-03-18 20:40:00] mywork
+                                   [1872-03-18 20:45:00] stop
+                                   [1872-03-18 20:55:00] myotherwork
+                                   [1872-03-18 21:05:00] stop
+                                   [1872-03-18 22:05:00] 10 myotherwork
+                                   [1872-03-25 22:05:00] 10 myotherwork
+                                   [1872-04-01 22:05:00] 1:00 myotherwork
+                                   [1872-04-08 22:05:00] 1:30 myotherwork
+                                   [1872-04-22 22:05:00] 2:00 myotherwork
+                                   ''')
+
+        main_core(['show'])
+        self.assertOutput('myotherwork: 05:20',
+                          'mywork: 00:25',
+                          'Sum: 05:45')
+
+        main_core(['show-weekly-sum'])
+        self.assertOutput('1872-12 x',
+                          '1872-13',
+                          '1872-14 x',
+                          '1872-15 x',
+                          '1872-17 xx')
 
 
 if __name__ == '__main__':
