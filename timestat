@@ -66,6 +66,11 @@ def timedelta_to_seconds(td):
 def seconds_to_timedelta(seconds):
     return datetime.timedelta(seconds=seconds)
 
+def isoweek_to_date(year, week, day):
+    dt = datetime.datetime.strptime('%04d-%02d-1' % (year, week), '%Y-%W-%w')
+    if datetime.date(year, 1, 4).isoweekday() > 4:
+        dt -= datetime.timedelta(days=(8 - day))
+    return datetime.date(dt.year, dt.month, dt.day)
 
 def str_to_date(s):
 
@@ -85,10 +90,31 @@ def str_to_date(s):
                    int(r.group(2)),
                    int(r.group(3)))
 
+    r = re.match('^(\d\d\d\d)-[Ww](\d\d)-(\d)$', s)
+    if r:
+        return isoweek_to_date(
+                   int(r.group(1)),
+                   int(r.group(2)),
+                   int(r.group(3)))
+
+    r = re.match('^[Ww](\d\d\d\d)-(\d\d)-(\d)$', s)
+    if r:
+        return isoweek_to_date(
+                   int(r.group(1)),
+                   int(r.group(2)),
+                   int(r.group(3)))
+
     year = datetime.date.today().year
     r = re.match('^(\d\d)-(\d\d)$', s)
     if r:
         return datetime.date(
+                   year,
+                   int(r.group(1)),
+                   int(r.group(2)))
+
+    r = re.match('^[Ww](\d\d)-(\d)$', s)
+    if r:
+        return isoweek_to_date(
                    year,
                    int(r.group(1)),
                    int(r.group(2)))
@@ -898,6 +924,8 @@ Commands:
                       help='Work with actions until this date.')
     parser.add_option('-d', '--day', dest='day',
                       help='Work with actions on this date.')
+    parser.add_option('--week', dest='week',
+                      help='Work with actions on this week.')
     parser.add_option('-t', '--today', dest='today',
                       action='store_true', default=False,
                       help='Same as --day today.')
@@ -956,6 +984,10 @@ Commands:
 
     if options.yesterday:
         options.day = 'yesterday'
+
+    if options.week is not None:
+        options.since = str_to_date('w' + options.week + '-1')
+        options.until = str_to_date('w' + options.week + '-7')
 
     if options.day is not None:
         options.since = str_to_date(options.day)
@@ -1339,6 +1371,23 @@ class TestTimestat(unittest.TestCase):
         self.assertEqual(str_to_date('yyyy'), d(1999, 12, 28))
         self.assertEqual(str_to_date('1941-03-26'), d(1941, 3, 26))
         self.assertEqual(str_to_date('03-26'), d(2000, 3, 26))
+
+        self.assertEqual(str_to_date('2016-w01-1'), d(2016, 1, 4))
+        self.assertEqual(str_to_date('2015-w01-1'), d(2014, 12, 29))
+        self.assertEqual(str_to_date('2014-w01-1'), d(2013, 12, 30))
+        self.assertEqual(str_to_date('2013-w01-1'), d(2012, 12, 31))
+        self.assertEqual(str_to_date('2012-w01-1'), d(2012, 1, 2))
+        self.assertEqual(str_to_date('2011-w01-1'), d(2011, 1, 3))
+        self.assertEqual(str_to_date('2010-w01-1'), d(2010, 1, 4))
+        self.assertEqual(str_to_date('2009-w01-1'), d(2008, 12, 29))
+        self.assertEqual(str_to_date('2008-w01-1'), d(2007, 12, 31))
+
+        self.assertEqual(str_to_date('2014-w01-6'), d(2014, 1, 4))
+        self.assertEqual(str_to_date('2014-w01-7'), d(2014, 1, 5))
+
+        self.assertEqual(str_to_date('w2014-01-7'), d(2014, 1, 5))
+
+        self.assertEqual(str_to_date('w01-1'), d(2000, 1, 3))
 
         with self.assertRaises(Exit) as cm:
             str_to_date('03'),
@@ -2103,6 +2152,17 @@ class TestTimestat(unittest.TestCase):
 
         main_core(['show', '--day', 'yy', '--nosum'])
         self.assertOutput('work1: 00:10')
+
+    def test_week(self):
+
+        self.create_action_file('''[2014-02-02 01:00:00] 10 work1
+                                   [2014-02-03 01:00:00] 1 work1
+                                   [2014-02-04 01:00:00] 1 work1
+                                   [2014-02-09 01:00:00] 1 work1
+                                   [2014-02-10 01:00:00] 10 work1''')
+
+        main_core(['show', '--week', '2014-06', '--nosum'])
+        self.assertOutput('work1: 00:03')
 
     ##### Functions writing the action files #####
 
