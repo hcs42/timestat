@@ -19,9 +19,9 @@ Let's have a look at a quick demo of Timestat:
 
     $ timestat add stop            # 5 minutes later, stopped working
 
-    $ timestat add myotherwork     # Some myotherwork again
+    $ timestat add mywork          # Some mywork again
 
-    $ timestat add stop            # 10 minutes later, myotherwork stopped again
+    $ timestat add stop            # 10 minutes later, mywork stopped again
 
     $ timestat add 10 myotherwork  # Adding 10 minutes to 'myotherwork'
                                    # that we did while not at the computer
@@ -31,34 +31,37 @@ Let's have a look at a quick demo of Timestat:
     [2009-07-25 20:20:00] myotherwork
     [2009-07-25 20:40:00] mywork
     [2009-07-25 20:45:00] stop
-    [2009-07-25 20:55:00] myotherwork
+    [2009-07-25 20:55:00] mywork
     [2009-07-25 21:05:00] stop
     [2009-07-25 22:05:00] 10 myotherwork
 
     $ ./timestat show
-    mywork: 25
-    myotherwork: 40
+    myotherwork: 00:30
+    mywork: 00:35
 
 The same steps, assuming you have the [bashrc configuration](#bashrc)
 described below (the `tq` alias switches to the previous state):
 
     $ tq mywork             # Started to work on 'mywork'
+    "mywork" activity started
 
     $ tq myotherwork        # 20 minutes later, started to work on
                             # 'myotherwork'
+    "myotherwork" activity started, "mywork" activity stopped
 
     $ tq                    # Another 20 minutes later, back to 'mywork'
-    "myotherwork" activity resumed
+    "mywork" activity resumed, "myotherwork" activity stopped
 
     $ tq stop               # 5 minutes later, stopped working
+    "mywork" activity stopped
 
-    $ tq                    # Some myotherwork again
-    "myotherwork" activity resumed
+    $ tq                    # Some mywork again
+    "mywork" activity resumed
 
-    $ tq                    # 10 minutes later, myotherwork stopped again
-    "myotherwork" activity stopped
+    $ tq                    # 10 minutes later, mywork stopped again
+    "mywork" activity stopped
 
-    $ ts add 10 myotherwork  # Adding 10 minutes to 'myotherwork'
+    $ ts add 10 myotherwork # Adding 10 minutes to 'myotherwork'
                             # that we did while not at the computer
 
     $ cat $HOME/myactionfile
@@ -66,13 +69,13 @@ described below (the `tq` alias switches to the previous state):
     [2009-07-25 20:20:00] myotherwork
     [2009-07-25 20:40:00] mywork
     [2009-07-25 20:45:00] stop
-    [2009-07-25 20:55:00] myotherwork
+    [2009-07-25 20:55:00] mywork
     [2009-07-25 21:05:00] stop
     [2009-07-25 22:05:00] 10 myotherwork
 
     $ ./timestat show
-    mywork: 25
-    myotherwork: 40
+    myotherwork: 00:30
+    mywork: 00:35
 
 Command-line commands and options
 =================================

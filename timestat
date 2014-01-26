@@ -219,6 +219,15 @@ def editor_to_editor_list(editor):
     return editor_list
 
 
+def call(cmd):
+    try:
+        return subprocess.call(cmd)
+    except OSError as e:
+        raise Exit(1, 'The operating system returned the following error:\n%s\n'
+                      'When trying to execute the following command:\n%s',
+                      (e, cmd))
+
+
 ##### Model classes: actions, events, happenings #####
 
 # Data model:
@@ -611,23 +620,24 @@ def show_status(options):
     actions, happenings, events, activities = collect_everything(options)
 
     if len(events) == 0:
-        print('No event found.')
+        wl('No event found.')
 
     else:
         event = events[-1]
-        print('State:', 'on' if event.ongoing else 'off')
-        print('Current' if event.ongoing else 'Last', 'activity:',
-              event.activity)
-        print('Start time:', event.starttime.strftime('%H:%M'))
+        wl('State: %s', 'on' if event.ongoing else 'off')
+        wl('%s activity: %s',
+           'Current' if event.ongoing else 'Last',
+           event.activity)
+        wl('Start time: %s', event.starttime.strftime('%H:%M'))
 
         if event.ongoing:
-            print('Current time:', event.stoptime.strftime('%H:%M'))
-            print('Time since started:',
+            wl('Current time: %s', event.stoptime.strftime('%H:%M'))
+            wl('Time since started: %s',
                    seconds_to_hhmm(event.timelen, options.seconds))
         else:
-            print('Stop time:', event.stoptime.strftime('%H:%M'))
-            print('Time length:',
-                  seconds_to_hhmm(event.timelen, options.seconds))
+            wl('Stop time: %s', event.stoptime.strftime('%H:%M'))
+            wl('Time length: %s',
+               seconds_to_hhmm(event.timelen, options.seconds))
 
 
 def show_targets(options):
@@ -638,11 +648,11 @@ def show_targets(options):
         actual_timelen = target_result['actual_timelen']
         def show(timelen):
             return seconds_to_hhmm(timelen, options.seconds)
-        print('Target name:', target_name)
-        print('Target time:', show(target_timelen))
-        print('Actual time:', show(actual_timelen))
-        print('Difference:',  show(actual_timelen - target_timelen))
-        print()
+        wl('Target name: %s', target_name)
+        wl('Target time: %s', show(target_timelen))
+        wl('Actual time: %s', show(actual_timelen))
+        wl('Difference: %s',  show(actual_timelen - target_timelen))
+        wl('')
 
 def print_object(name, options):
     actions, happenings, events, activities = collect_everything(options)
@@ -682,7 +692,8 @@ def show(options):
 
             time_sum = sum(activities.values())
             time_sum = seconds_to_hhmm(time_sum, options.seconds)
-            print('Sum:', time_sum)
+            if not options.nosum:
+                wl('Sum: %s', time_sum)
 
 
 def add_activity(options, activity, everything=None):
@@ -719,22 +730,19 @@ def add_activity(options, activity, everything=None):
 
 def parse_add_cmd_args(args):
 
+    assert(0 <= len(args) <= 2)
     if len(args) == 0:
         duration, activity = None, None
     elif len(args) == 1:
         duration, activity = None, args[0]
     elif len(args) == 2:
         duration, activity = args
-    else:
-        print('ERROR: too many parameters')
-        sys.exit(1)
     return activity, duration
 
 
 def add(options, action):
     if options.actionfile == 'ALL':
-        print('Error: Action file "ALL" is not accepted by "add".')
-        sys.exit(1)
+        raise Exit(1, 'Action file "ALL" is not accepted by "add".')
 
     dt = get_now()
     actionfile_name = options.actionfile
@@ -743,7 +751,7 @@ def add(options, action):
         f.write(text)
         f.write('\n')
         if options.verbose:
-            print(actionfile_name, 'extended with:', text)
+            wl('%s extended with: %s', actionfile_name, text)
 
 
 def edit(options):
@@ -751,14 +759,17 @@ def edit(options):
         actionfile_names = options.actionfiles
     else:
         actionfile_names = [options.actionfile]
-    editor = os.getenv('EDITOR', 'vi')
+    editor = os.getenv('EDITOR', '')
+    if editor == '':
+        raise Exit(1, 'You should set the $EDITOR environment variable '
+                      'to your favorite text editor.')
     editor_list = editor_to_editor_list(editor)
     call(editor_list + actionfile_names)
 
 
 def list_actionfiles(options):
     for actionfile in options.actionfiles:
-        print(actionfile)
+        wl(actionfile)
 
 
 def expand_activity(activity, activities):
@@ -771,7 +782,7 @@ def expand_activity(activity, activities):
         act_hits = sorted(set([act for act in activities
                                if re.search(activity, act)]))
         if len(act_hits) == 0:
-            raise Exit(1, 'No activity matches "%s".', activity)
+            raise Exit(1, 'No activity matches "%s"', activity)
         elif len(act_hits) == 1:
             activity = act_hits[0]
         else:
@@ -899,6 +910,9 @@ Commands:
     parser.add_option('-s', '--sum', dest='sum',
                       action='store_true', default=False,
                       help='Print only the sum of the activity time.')
+    parser.add_option('--nosum', dest='nosum',
+                      action='store_true', default=False,
+                      help='Do not print the sum of the activity time.')
     parser.add_option('-i', '--ignore-activities', dest='ignore_activities',
                       default=None,
                       help='Ignores the given activities.')
@@ -959,7 +973,7 @@ Commands:
     # Prepare: actionfiles
     if options.actionfiles is not None:
         options.actionfiles = options.actionfiles.split(':')
-    elif os.getenv('ACTIONFILES') is not None:
+    elif os.getenv('ACTIONFILES') not in (None, ''):
         options.actionfiles = os.getenv('ACTIONFILES').split(':')
     else:
         # If there is no action file, don't proceed.
@@ -972,20 +986,20 @@ Commands:
         pass
     else:
         match_count = 0
-        for actionfile in options.actionfiles:
-            if options.actionfile in os.path.basename(actionfile):
-                options.actionfile = actionfile
+        for actionfile_iter in options.actionfiles:
+            if options.actionfile in os.path.basename(actionfile_iter):
+                actionfile = actionfile_iter
                 match_count += 1
         if match_count == 1:
-            pass
+            options.actionfile = actionfile
         else:
             if match_count == 0:
-                print('Error: Cannot find action file in action file list!')
+                msg = 'Cannot find action file in action file list.\n'
             else:
-                print('Error: More than one action files match!')
-            print('Action file:', options.actionfile)
-            print('Action file list:', options.actionfiles)
-            sys.exit(1)
+                msg = 'More than one action files match.\n'
+            msg += 'Action file: ' + str(options.actionfile) + '\n'
+            msg += 'Action file list: ' + str(options.actionfiles)
+            raise Exit(1, msg)
 
     return options, args
 
@@ -993,51 +1007,48 @@ Commands:
 ##### Main function (running the commands) #####
 
 
+def check_args(args, a, b=None):
+    if b is None:
+        b = a
+
+    if a <= len(args) - 1 <= b:
+        return
+    else:
+        def plural(s, n):
+            return s % (n, 's' if n >= 2 else '')
+
+        msg = ('The "%s" command requires ' % args[0])
+        if a == b == 0:
+            msg += 'no argument.'
+        elif a == b:
+            msg += plural('exactly %s argument%s.', a)
+        elif len(args) - 1 < a:
+            msg += plural('at least %s argument%s.', a)
+        elif b < len(args) - 1:
+            msg += plural('at most %s argument%s.', b)
+        raise Exit(1, msg)
+
+
 def main_core(input_args):
 
     options, args = parse_args(input_args)
-
-    def check_args(num):
-        if len(args) - 1 != num:
-            plural = 's' if num >= 2 else ''
-            print ('Error: the "%s" command requires exactly %s argument%s '
-                   '(%s was given).' %
-                   (args[0], num, plural, len(args) - 1))
-            sys.exit(1)
-
-    def check_min_args(num):
-        if len(args) - 1 < num:
-            plural = 's' if num >= 2 else ''
-            print ('Error: the "%s" command requires at least %s argument%s '
-                   '(%s was given).' %
-                   (args[0], num, plural, len(args) - 1))
-            sys.exit(1)
-
-    def check_max_args(num):
-        if len(args) - 1 > num:
-            plural = 's' if num >= 2 else ''
-            print ('Error: the "%s" command requires at most %s argument%s '
-                   '(%s was given).' %
-                   (args[0], num, plural, len(args) - 1))
-            sys.exit(1)
 
     # Commands that don't need action files
     if args == []:
         pass
     elif args[0] == 'full-help':
-        check_args(0)
+        check_args(args, 0)
         print_full_help()
         return
     elif args[0] in ('t', 'test'):
-        check_min_args(0)
-        check_max_args(1)
+        check_args(args, 0, 1)
         if len(args) == 1:
             run_unittest()
         else:
             run_unittest(args[1])
         return
     elif args[0] in ('tc', 'test_coverage'):
-        check_args(0)
+        check_args(args, 0)
         run_coverage()
         return
 
@@ -1050,45 +1061,35 @@ def main_core(input_args):
     if args == []:
         show(options)
     elif args[0] == 'show':
-        check_args(0)
+        check_args(args, 0)
         show(options)
     elif args[0] == 'show-weekly-sum':
-        check_args(0)
+        check_args(args, 0)
         show_weekly_sum(options)
     elif args[0] in ('ss', 'show-status'):
-        check_args(0)
+        check_args(args, 0)
         show_status(options)
     elif args[0] in('st', 'show-targets'):
-        check_args(0)
+        check_args(args, 0)
         show_targets(options)
     elif args[0] in ('print'):
-        check_args(1)
+        check_args(args, 1)
         print_object(args[1], options)
     elif args[0] in ('a', 'add'):
-        check_min_args(1)
-        check_max_args(2)
+        check_args(args, 1, 2)
         add(options, ' '.join(args[1:]))
     elif args[0] == 'quickadd':
-        check_max_args(2)
+        check_args(args, 0, 2)
         activity, duration = parse_add_cmd_args(args[1:])
         quickadd(options, activity, duration)
     elif args[0] in ('e', 'edit'):
-        check_args(0)
+        check_args(args, 0)
         edit(options)
     elif args[0] == 'list':
-        check_args(0)
+        check_args(args, 0)
         list_actionfiles(options)
     else:
         raise Exit(1, 'Unrecognized command: %s.', args[0])
-
-
-def call(cmd):
-    try:
-        return subprocess.call(cmd)
-    except OSError as e:
-        raise Exit(1, 'The operating system returned error "%s" for the '
-                      'following command:\n'
-                      '%s', (errno.errorcode[e.errno], cmd))
 
 
 def run_unittest(test_case=None):
@@ -1150,14 +1151,15 @@ class TestTimestat(unittest.TestCase):
 
         # Empty environment variables
         os.environ['EDITOR'] = ''
-        os.environ['ACTIONFILES'] = ''
+        os.environ['ACTIONFILES'] = 'mock_actionfile_name'
 
         # Mock stdout
         self.output = ''
         class StdoutMock():
-            def write(_, s):
+            def write(_self, s):
                 self.output += s
-            def flush(_):
+
+            def flush(_self):
                 pass
 
         self.real_stdout = sys.stdout
@@ -1165,13 +1167,29 @@ class TestTimestat(unittest.TestCase):
         sys.stdout = StdoutMock()
         sys.stderr = StdoutMock()
 
-        # Mock datetime.date.today
+        # Mock datetime.date.today and datetime.datetime.now.
         # (Source: http://stackoverflow.com/a/4482067/17916)
+
+        self.now = [2000, 1, 1, 0, 0, 0]
+
         class NewDate(datetime.date):
             @classmethod
             def today(cls):
-                return cls(2000, 1, 1)
+                return cls(*self.now[0:3])
         datetime.date = NewDate
+
+        class NewDatetime(datetime.datetime):
+            @classmethod
+            def now(cls):
+                return cls(*self.now)
+        datetime.datetime = NewDatetime
+
+        # Mock call
+        self.calls = []
+        global call
+        self.original_call = call
+        def call(cmd):
+            self.calls.append(cmd)
 
         # Fill in the options
         class Options:
@@ -1185,6 +1203,7 @@ class TestTimestat(unittest.TestCase):
         self.options.yesterday = False
         self.options.weekly_sum = False
         self.options.sum = False
+        self.options.nosum = False
         self.options.ignore_activities = None
         self.options.ignore_activities_pattern = None
         self.options.only_activities = None
@@ -1196,17 +1215,42 @@ class TestTimestat(unittest.TestCase):
         # Set unittest settings
         self.maxDiff = 2000
 
-    def tearDown(self):
-        sys.stdout = self.real_stdout
-        sys.stderr = self.real_stderr
+    def tearDown(self, only_assertions=False):
+        global call
 
-        self.clean_tmpfile()
+        if not only_assertions:
+            sys.stdout = self.real_stdout
+            sys.stderr = self.real_stderr
+            call = self.original_call
+            self.clean_tmpfile()
 
-        if self.output != '': # pragma nocover
+        if self.calls != []:
+            raise AssertionError(
+                      'self.calls contained the following commands after test '
+                      'case execution:',
+                      self.calls)
+
+        if self.output != '':
             raise AssertionError(
                       'self.output contained the following line after test '
                       'case execution:\n' +
                       self.output.strip())
+
+    def test_tearDown(self):
+        try:
+            self.calls = ['something']
+            self.output = ''
+            with self.assertRaises(AssertionError):
+                self.tearDown(only_assertions=True)
+
+            self.calls = []
+            self.output = 'something'
+            with self.assertRaises(AssertionError):
+                self.tearDown(only_assertions=True)
+
+        finally:
+            self.calls = []
+            self.output = ''
 
     def clean_tmpfile(self):
         if self.tmpfile != '':
@@ -1226,12 +1270,24 @@ class TestTimestat(unittest.TestCase):
     def assertOutput(self, *expected):
         """Assert that the given output was printed."""
         try:
-            self.assertEqual(self.output.strip(), '\n'.join(expected).strip())
+            self.assertEqual(
+                self.output.strip() + '\n',
+                '\n'.join(expected).strip() + '\n')
         finally:
             # If the assertion fails, let's still make the output empty,
             # otherwise tearDown will complain, which is unnecessary, since
             # assertOutput compains anyway.
             self.output = ''
+
+    def assertCalls(self, expected_calls):
+        """Assert that the given call was made."""
+        try:
+            self.assertEqual(self.calls, expected_calls)
+        finally:
+            # If the assertion fails, let's still make the excepted calls
+            # empty, otherwise tearDown will complain, which is unnecessary,
+            # since assertCalls compains anyway.
+            self.calls = []
 
     def create_action_file(self, content):
 
@@ -1244,6 +1300,10 @@ class TestTimestat(unittest.TestCase):
         self.options.actionfiles = [filename]
         os.environ['ACTIONFILES'] = filename
         return filename
+
+    def read_action_file(self):
+        with open(self.tmpfile) as f:
+            return f.read()
 
     ##### Test pure functions #####
 
@@ -1291,6 +1351,9 @@ class TestTimestat(unittest.TestCase):
     def test_datetime_to_str(self):
         day = datetime.datetime(1952, 3, 11, 4, 42, 42)
         self.assertEqual(datetime_to_str(day), '1952-03-11 04:42:42')
+
+    def test_get_now(self):
+        self.assertEqual(get_now(), datetime.datetime(2000, 1, 1, 0, 0, 0))
 
     def test_hhmm_to_seconds(self):
 
@@ -1350,6 +1413,31 @@ class TestTimestat(unittest.TestCase):
             e('vim\\x')
         self.assertExit(cm, 1, 'Unexpected character after backslash in '
                                '$EDITOR.')
+
+    def test_call(self):
+
+        original_subprocess_call = subprocess.call
+        try:
+            def my_call(cmd):
+                wl('Call: %s', cmd)
+            subprocess.call = my_call
+            self.original_call(['ls', '/home'])
+            self.assertOutput("Call: ['ls', '/home']")
+
+            def my_call(cmd):
+                raise OSError(errno.ENOENT, 'No such file', 'ls')
+            subprocess.call = my_call
+            with self.assertRaises(Exit) as cm:
+                self.original_call(['ls', '/home'])
+            self.assertExit(
+                cm, 1,
+                "The operating system returned the following error:\n"
+                "[Errno 2] No such file: 'ls'\n"
+                "When trying to execute the following command:\n"
+                "['ls', '/home']")
+
+        finally:
+            subprocess.call = original_subprocess_call
 
     ##### Model classes: actions, events, happenings #####
 
@@ -1631,7 +1719,6 @@ class TestTimestat(unittest.TestCase):
 
     def test_actionfile(self):
 
-        # Actionfile
         filename = self.create_action_file('''
                        [2000-01-01 00:00:00] mywork
 
@@ -1712,7 +1799,6 @@ class TestTimestat(unittest.TestCase):
 
     def test_ongoing_activity(self):
 
-        # Actionfile
         filename = self.create_action_file('''
                        [2000-01-01 00:00:00] mywork''')
 
@@ -1742,7 +1828,6 @@ class TestTimestat(unittest.TestCase):
 
     def test_ignore_and_only(self):
 
-        # Actionfile
         self.create_action_file('''
             [2000-01-01 00:00:00] work
             [2000-01-01 00:10:00] myotherwork
@@ -1768,6 +1853,9 @@ class TestTimestat(unittest.TestCase):
         t(['work'], None, None, None,
           {'myotherwork': 60.0,
            'something_else': 540.0})
+        main_core(['show', '-i', 'work', '--nosum'])
+        self.assertOutput('myotherwork: 00:01',
+                          'something_else: 00:09')
 
         # Ignore
         t(['work', 'myotherwork'], None, None, None,
@@ -1777,10 +1865,14 @@ class TestTimestat(unittest.TestCase):
         # Ignore pattern
         t(None, 'work', None, None,
           {'something_else': 540.0})
+        main_core(['show', '-I', 'work', '--nosum'])
+        self.assertOutput('something_else: 00:09')
 
         # "Only"
         t(None, None, ['work'], None,
           {'work': 600.0})
+        main_core(['show', '-o', 'work', '--nosum'])
+        self.assertOutput('work: 00:10')
 
         # "Only"
         t(None, None, ['work', 'myotherwork'], None,
@@ -1791,6 +1883,9 @@ class TestTimestat(unittest.TestCase):
         t(None, None, None, 'work',
           {'work': 600.0,
            'myotherwork': 60.0})
+        main_core(['show', '-O', 'work', '--nosum'])
+        self.assertOutput('myotherwork: 00:01',
+                          'work: 00:10')
 
         # "Only" pattern
         t(None, None, None, 'o.*t',
@@ -1810,46 +1905,130 @@ class TestTimestat(unittest.TestCase):
             'WARNING: Incorrect line in file %s line 0: bad_content\n'
             'Sum: 00:00' % filename)
 
-    ##### Functions writing the action files #####
-
-    def test_quickadd(self):
+    def test_show_status(self):
 
         self.create_action_file('')
+        main_core(['show-status'])
+        self.assertOutput('No event found.')
 
-        with self.assertRaises(Exit) as cm:
-            quickadd(self.options, ''),
-        self.assertExit(cm, 1, 'Empty activity specified.')
+        self.create_action_file('''[1999-01-01 00:10:00] mywork''')
+        self.now = [1999, 1, 1, 0, 15, 0]
+        main_core(['show-status'])
+        self.assertOutput('State: on',
+                          'Current activity: mywork',
+                          'Start time: 00:10',
+                          'Current time: 00:15',
+                          'Time since started: 00:05')
 
-        quickadd(self.options, 'mywork')
-        self.assertOutput('"mywork" activity started')
+        self.create_action_file('''[1999-01-01 00:10:00] mywork
+                                   [1999-01-01 00:15:00] stop''')
+        self.now = [1999, 1, 1, 0, 20, 0]
+        main_core(['show-status'])
+        self.assertOutput('State: off',
+                          'Last activity: mywork',
+                          'Start time: 00:10',
+                          'Stop time: 00:15',
+                          'Time length: 00:05')
+
+    def test_show_targets(self):
+        self.create_action_file(
+            '''[1999-01-01 00:00:00] mywork
+               [1999-01-01 01:00:00] stop
+               [1999-01-02 02:00:00] 20 mywork
+               [1999-01-03 00:00:00] myotherwork
+               [1999-01-03 00:00:00] stop
+               [1999-01-04 00:00:00] 0:10 myotherwork
+               [1999-01-05 00:00:00] increase-target mywork 1:00
+               [1999-01-05 00:00:00] increase-target mywork 2:00
+
+               [1999-01-05 00:00:00] increase-target reading 1
+               [1999-01-05 00:00:00] 10 reading
+
+               [1999-01-05 00:00:00] increase-target writing 1
+
+               # The future does not count:
+               [1999-02-02 00:00:00] mywork
+               [1999-02-02 23:00:00] stop
+               [1999-02-03 00:00:00] 25:00 mywork
+               [1999-02-04 00:00:00] increase-target mywork 100:00''')
+
+        self.now = [1999, 2, 1, 0, 15, 0]
+        main_core(['show-targets'])
+        self.assertOutput('Target name: mywork',
+                          'Target time: 03:00',
+                          'Actual time: 01:20',
+                          'Difference: -01:40',
+                          '',
+                          'Target name: reading',
+                          'Target time: 00:01',
+                          'Actual time: 00:10',
+                          'Difference: 00:09',
+                          '',
+                          'Target name: writing',
+                          'Target time: 00:01',
+                          'Actual time: 00:00',
+                          'Difference: -00:01')
+
+    def test_print_object(self):
+
+        self.create_action_file('''[1999-01-01 20:00:00] mywork
+                                   [1999-01-01 20:20:00] myotherwork''')
+
+        main_core(['print', 'actions'])
+        self.assertOutput(
+            "<Action: datetime=1999-01-01 20:00:00, "
+            "text=mywork, type=start, "
+            "activity=mywork, timelen=None, source=('"
+            + self.tmpfile + "', 0)>\n"
+            "<Action: datetime=1999-01-01 20:20:00, "
+            "text=myotherwork, type=start, activity=myotherwork, timelen=None, "
+            "source=('" + self.tmpfile + "', 1)>")
+
+        main_core(['print', 'happenings'])
+        self.assertOutput(
+            "<Event: starttime=1999-01-01 20:00:00, "
+            "stoptime=1999-01-01 20:20:00, activity=mywork, "
+            "timelen=1200, ongoing=False, is_interval_action=False>\n"
+            "<Event: starttime=1999-01-01 20:20:00, "
+            "stoptime=2000-01-01 00:00:00, activity=myotherwork, "
+            "timelen=31462800, ongoing=True, is_interval_action=False>")
+
+        main_core(['print', 'events'])
+        self.assertOutput(
+            "<Event: starttime=1999-01-01 20:00:00, "
+            "stoptime=1999-01-01 20:20:00, activity=mywork, "
+            "timelen=1200, ongoing=False, is_interval_action=False>\n"
+            "<Event: starttime=1999-01-01 20:20:00, "
+            "stoptime=2000-01-01 00:00:00, activity=myotherwork, "
+            "timelen=31462800, ongoing=True, is_interval_action=False>")
+
+        main_core(['print', 'activities'])
+        self.assertOutput("('mywork', 1200)\n"
+                          "('myotherwork', 31462800)")
 
 
-    ##### Test the main functions #####
+    def test_show_c(self):
 
-    def test_main(self):
-
-        # Actionfile
+        self.now = [1999, 1, 2, 0, 0, 0]
         self.create_action_file('')
+        main_core(['show', '-c'])
+        self.assertOutput('')
 
-        with self.assertRaises(Exit) as cm:
-            main_core(['nosuchcommand'])
-        self.assertExit(cm, 1, 'Unrecognized command: nosuchcommand.')
+        self.create_action_file('''[1999-01-01 20:00:00] mywork''')
+        main_core(['show', '-c'])
+        self.assertOutput('mywork: 04:00')
 
-#    def test_show_status(self):
-#
-#        # Actionfile
-#        self.create_action_file('''[1999-01-01 00:00:00] mywork''')
-#
-#        main_core(['show-status'])
-#        self.assertOutput('State: on',
-#                          'Current activity: mywork',
-#                          'Start time: 00:00',
-#                          'Current time: 16:24',
-#                          'Time since started: 132112:24')
+        self.create_action_file('''[1999-01-01 20:00:00] 10 mywork''')
+        main_core(['show', '-c'])
+        self.assertOutput('')
 
-    def test_show_weekly_sum(self):
+        self.create_action_file('''[1999-01-01 20:00:00] mywork
+                                   [1999-01-01 20:20:00] stop''')
+        main_core(['show', '-c'])
+        self.assertOutput('')
 
-        # Actionfile
+    def test_show(self):
+
         self.create_action_file('''[1872-03-18 20:00:00] mywork
                                    [1872-03-18 20:20:00] myotherwork
                                    [1872-03-18 20:40:00] mywork
@@ -1868,6 +2047,18 @@ class TestTimestat(unittest.TestCase):
                           'mywork: 00:25',
                           'Sum: 05:45')
 
+        main_core([]) # show is the default command
+        self.assertOutput('myotherwork: 05:20',
+                          'mywork: 00:25',
+                          'Sum: 05:45')
+
+        main_core(['show', '--nosum'])
+        self.assertOutput('myotherwork: 05:20',
+                          'mywork: 00:25')
+
+        main_core(['show', '--sum'])
+        self.assertOutput('Sum: 05:45')
+
         main_core(['show-weekly-sum'])
         self.assertOutput('1872-12 x',
                           '1872-13',
@@ -1875,6 +2066,447 @@ class TestTimestat(unittest.TestCase):
                           '1872-15 x',
                           '1872-17 xx')
 
+        main_core(['show', '-w'])
+        self.assertOutput('1872-12 x',
+                          '1872-13',
+                          '1872-14 x',
+                          '1872-15 x',
+                          '1872-17 xx')
+
+    def test_since_until(self):
+
+        self.create_action_file('''[1999-01-01 01:00:00] 10 work1
+                                   [1999-01-02 01:00:00] 10 work2
+                                   [1999-01-03 01:00:00] 12 work1
+                                   [1999-01-04 01:00:00] 15 work3''')
+
+        main_core(['show', '--since', '1999-01-02', '--nosum'])
+        self.assertOutput('work1: 00:12',
+                          'work2: 00:10',
+                          'work3: 00:15')
+
+        main_core(['show', '--until', '1999-01-02', '--nosum'])
+        self.assertOutput('work1: 00:10',
+                          'work2: 00:10')
+
+        main_core(['show', '--since', '1999-01-02',
+                           '--until', '1999-01-03', '--nosum'])
+        self.assertOutput('work1: 00:12',
+                          'work2: 00:10')
+
+        self.now = [1999, 1, 3, 12, 0, 0]
+        main_core(['show', '--today', '--nosum'])
+        self.assertOutput('work1: 00:12')
+
+        main_core(['show', '--yesterday', '--nosum'])
+        self.assertOutput('work2: 00:10')
+
+        main_core(['show', '--day', 'yy', '--nosum'])
+        self.assertOutput('work1: 00:10')
+
+    ##### Functions writing the action files #####
+
+    def test_add(self):
+
+        self.create_action_file('')
+
+        # Test the example in the README
+        self.now = [2009, 7, 25, 20, 0, 0]
+        main_core(['add', 'mywork', '-v'])
+        self.assertOutput(self.tmpfile + ' extended with: '
+                          '[2009-07-25 20:00:00] mywork')
+
+        self.now = [2009, 7, 25, 20, 20, 0]
+        main_core(['add', 'myotherwork'])
+
+        self.now = [2009, 7, 25, 20, 40, 0]
+        main_core(['add', 'mywork'])
+
+        self.now = [2009, 7, 25, 20, 45, 0]
+        main_core(['add', 'stop'])
+
+        self.now = [2009, 7, 25, 20, 55, 0]
+        main_core(['add', 'mywork'])
+
+        self.now = [2009, 7, 25, 21, 5, 0]
+        main_core(['add', 'stop'])
+
+        self.now = [2009, 7, 25, 22, 5, 0]
+        main_core(['add', '10', 'myotherwork'])
+
+        self.assertEqual(self.read_action_file(),
+                         '[2009-07-25 20:00:00] mywork\n'
+                         '[2009-07-25 20:20:00] myotherwork\n'
+                         '[2009-07-25 20:40:00] mywork\n'
+                         '[2009-07-25 20:45:00] stop\n'
+                         '[2009-07-25 20:55:00] mywork\n'
+                         '[2009-07-25 21:05:00] stop\n'
+                         '[2009-07-25 22:05:00] 10 myotherwork\n')
+
+        main_core(['show'])
+        self.assertOutput('myotherwork: 00:30',
+                          'mywork: 00:35',
+                          'Sum: 01:05')
+        # Test ALL
+        with self.assertRaises(Exit) as cm:
+            main_core(['add', 'work', '--actionfile', 'ALL'])
+        self.assertExit(cm, 1, 'Action file "ALL" is not accepted by "add".')
+
+    def test_quickadd(self):
+
+        self.create_action_file('')
+
+        with self.assertRaises(Exit) as cm:
+            quickadd(self.options, ''),
+        self.assertExit(cm, 1, 'Empty activity specified.')
+
+        with self.assertRaises(Exit) as cm:
+            main_core(['quickadd'])
+        self.assertExit(cm, 1, 'Action file does not contain any event.')
+
+        # Test the example in the README
+        self.now = [2009, 7, 25, 20, 0, 0]
+        main_core(['quickadd', 'mywork'])
+        self.assertOutput('"mywork" activity started')
+
+        self.now = [2009, 7, 25, 20, 20, 0]
+        main_core(['quickadd', 'myotherwork'])
+        self.assertOutput('"myotherwork" activity started, '
+                          '"mywork" activity stopped')
+
+        self.now = [2009, 7, 25, 20, 40, 0]
+        main_core(['quickadd'])
+        self.assertOutput('"mywork" activity resumed, '
+                          '"myotherwork" activity stopped')
+
+        self.now = [2009, 7, 25, 20, 45, 0]
+        main_core(['quickadd', 'stop'])
+        self.assertOutput('"mywork" activity stopped')
+
+        self.now = [2009, 7, 25, 20, 55, 0]
+        main_core(['quickadd'])
+        self.assertOutput('"mywork" activity resumed')
+
+        self.now = [2009, 7, 25, 20, 56, 0]
+        main_core(['quickadd', 'mywork'])
+        self.assertOutput('Do nothing: "mywork" activity is going on anyway.')
+
+        self.now = [2009, 7, 25, 21, 5, 0]
+        main_core(['quickadd'])
+        self.assertOutput('"mywork" activity stopped')
+
+        self.now = [2009, 7, 25, 22, 0, 0]
+        main_core(['quickadd', 'stop'])
+        self.assertOutput('Do nothing: there is nothing to stop.')
+
+        self.now = [2009, 7, 25, 22, 5, 0]
+        main_core(['quickadd', '10', 'myotherwork'])
+        self.assertOutput('')
+
+        self.assertEqual(self.read_action_file(),
+                         '[2009-07-25 20:00:00] mywork\n'
+                         '[2009-07-25 20:20:00] myotherwork\n'
+                         '[2009-07-25 20:40:00] mywork\n'
+                         '[2009-07-25 20:45:00] stop\n'
+                         '[2009-07-25 20:55:00] mywork\n'
+                         '[2009-07-25 21:05:00] stop\n'
+                         '[2009-07-25 22:05:00] 10 myotherwork\n')
+
+        main_core(['show'])
+        self.assertOutput('myotherwork: 00:30',
+                          'mywork: 00:35',
+                          'Sum: 01:05')
+
+        # Redundant start/resume
+        self.create_action_file('[2000-01-01 00:00:00] mywork\n'
+                                '[2000-01-01 00:00:01] stop\n')
+
+        self.now = [2000, 1, 1, 0, 0, 2]
+        main_core(['quickadd', 'mywork'])
+        self.assertOutput('"mywork" activity resumed')
+
+        self.now = [2000, 1, 1, 0, 0, 3]
+        main_core(['quickadd', 'stop'])
+        self.assertOutput('"mywork" activity stopped')
+
+        self.now = [2000, 1, 1, 0, 0, 4]
+        main_core(['quickadd', 'myotherwork'])
+        self.assertOutput('"myotherwork" activity started')
+
+        self.now = [2000, 1, 1, 0, 0, 5]
+        main_core(['quickadd', 'stop'])
+        self.assertOutput('"myotherwork" activity stopped')
+
+        self.assertEqual(self.read_action_file(),
+                         '[2000-01-01 00:00:00] mywork\n'
+                         '[2000-01-01 00:00:01] stop\n'
+                         '[2000-01-01 00:00:02] mywork\n'
+                         '[2000-01-01 00:00:03] stop\n'
+                         '[2000-01-01 00:00:04] myotherwork\n'
+                         '[2000-01-01 00:00:05] stop\n')
+
+
+    def test_edit(self):
+        with self.assertRaises(Exit) as cm:
+            main_core(['edit'])
+        self.assertExit(cm, 1, 'You should set the $EDITOR environment '
+                               'variable to your favorite text editor.')
+        os.environ['EDITOR'] = 'myeditor'
+        main_core(['edit'])
+        self.assertCalls([['myeditor', 'mock_actionfile_name']])
+
+        main_core(['edit', '-a', 'ALL'])
+        self.assertCalls([['myeditor', 'mock_actionfile_name']])
+
+        main_core(['edit', '-a', 'ALL', '-f', '1:2:3'])
+        self.assertCalls([['myeditor', '1', '2', '3']])
+
+        main_core(['edit', '-a', 'sec', '-f', 'first:second:third'])
+        self.assertCalls([['myeditor', 'second']])
+
+        with self.assertRaises(Exit) as cm:
+            main_core(['edit', '-a', 'nosuch', '-f', 'my1:my2'])
+        self.assertExit(cm, 1, "Cannot find action file in action file list.\n"
+                               "Action file: nosuch\n"
+                               "Action file list: ['my1', 'my2']")
+
+        with self.assertRaises(Exit) as cm:
+            main_core(['edit', '-a', 'my', '-f', 'my1:my2'])
+        self.assertExit(cm, 1, "More than one action files match.\n"
+                               "Action file: my\n"
+                               "Action file list: ['my1', 'my2']")
+
+    def test_list_actionfiles(self):
+        main_core(['list'])
+        self.assertOutput('mock_actionfile_name')
+
+        main_core(['list', '-f', '1:2:3'])
+        self.assertOutput('1\n2\n3')
+
+    def test_expand_activity(self):
+
+        activities = {'myotherwork': 1,
+                      'something_else': 1,
+                      'work': 1}
+
+        self.assertEqual(expand_activity('%other', activities),
+                         'myotherwork')
+
+        with self.assertRaises(Exit) as cm:
+            expand_activity('%nomatch', activities)
+        self.assertExit(cm, 1, 'No activity matches "nomatch"')
+
+        # stdin mock
+        class NewStdin():
+            def __init__(self, l):
+                self.i = 0
+                self.l = l
+            def readline(self):
+                self.i += 1
+                return self.l[self.i - 1]
+
+        real_stdin = sys.stdin
+        try:
+
+            # Cancelling
+            with self.assertRaises(Exit) as cm:
+                sys.stdin = NewStdin([''])
+                self.assertEqual(expand_activity('%work', activities),
+                                 'myotherwork')
+            self.assertOutput(
+                'Select the desired match (empty line = cancel):',
+                '1: myotherwork',
+                '2: work',
+                '>')
+            self.assertExit(cm, 0, 'Cancelled.')
+
+            # Select one of the hits
+            sys.stdin = NewStdin(['1'])
+            self.assertEqual(expand_activity('%work', activities),
+                             'myotherwork')
+            self.assertOutput(
+                'Select the desired match (empty line = cancel):',
+                '1: myotherwork',
+                '2: work',
+                '>')
+
+            # Trying several times
+            sys.stdin = NewStdin(['0', '3', 'xy', '1'])
+            self.assertEqual(expand_activity('%work', activities),
+                             'myotherwork')
+            self.assertOutput(
+                'Select the desired match (empty line = cancel):',
+                '1: myotherwork',
+                '2: work',
+                '> Please type one of the numbers above or an empty line to '
+                'cancel.',
+                '> Please type one of the numbers above or an empty line to '
+                'cancel.',
+                '> Please type one of the numbers above or an empty line to '
+                'cancel.',
+                '>')
+
+        finally:
+            sys.stdin = real_stdin
+
+    def test_full_help(self):
+        main_core(['full-help'])
+        try:
+            self.assertEqual(self.output[:15], '**Timestat** is')
+            self.assertEqual(self.output[-15:], '/machine_1.txt\n')
+        finally:
+            self.output = ''
+
+    ##### Test the command line interface #####
+
+    def test_no_action_file(self):
+
+        os.environ['ACTIONFILES'] = ''
+        with self.assertRaises(Exit) as cm:
+            main_core(['nosuchcommand'])
+        self.assertExit(cm, 1, 'You should set either the ACTIONFILES '
+                               'environment variable or give --actionfiles '
+                               'argument!')
+
+    def test_check_args(self):
+
+        def ok(a, b, arg_count):
+            check_args(['cmd'] + ['arg'] * arg_count, a, b)
+
+        def err(a, b, arg_count, msg):
+            with self.assertRaises(Exit) as cm:
+                check_args(['cmd'] + ['arg'] * arg_count, a, b)
+            self.assertExit(cm, 1, msg)
+
+        ok (0, 0, 0)
+        ok (0, None, 0)
+        err(0, 0, 1, 'The "cmd" command requires no argument.')
+        err(0, 0, 2, 'The "cmd" command requires no argument.')
+        ok (0, 1, 0)
+        ok (0, 1, 1)
+        err(0, 1, 2, 'The "cmd" command requires at most 1 argument.')
+        err(0, 1, 3, 'The "cmd" command requires at most 1 argument.')
+        ok (0, 2, 0)
+        ok (0, 2, 1)
+        ok (0, 2, 2)
+        err(0, 2, 3, 'The "cmd" command requires at most 2 arguments.')
+        ok (0, 3, 0)
+        ok (0, 3, 1)
+        ok (0, 3, 2)
+        ok (0, 3, 3)
+        err(1, 1, 0, 'The "cmd" command requires exactly 1 argument.')
+        ok (1, 1, 1)
+        ok (1, None, 1)
+        err(1, 1, 2, 'The "cmd" command requires exactly 1 argument.')
+        err(1, 1, 3, 'The "cmd" command requires exactly 1 argument.')
+        err(1, 2, 0, 'The "cmd" command requires at least 1 argument.')
+        ok (1, 2, 1)
+        ok (1, 2, 2)
+        err(1, 2, 3, 'The "cmd" command requires at most 2 arguments.')
+        err(1, 3, 0, 'The "cmd" command requires at least 1 argument.')
+        ok (1, 3, 1)
+        ok (1, 3, 2)
+        ok (1, 3, 3)
+        err(2, 2, 0, 'The "cmd" command requires exactly 2 arguments.')
+        err(2, 2, 1, 'The "cmd" command requires exactly 2 arguments.')
+        ok (2, 2, 2)
+        ok (2, None, 2)
+        err(2, 2, 3, 'The "cmd" command requires exactly 2 arguments.')
+        err(2, 3, 0, 'The "cmd" command requires at least 2 arguments.')
+        err(2, 3, 1, 'The "cmd" command requires at least 2 arguments.')
+        ok (2, 3, 2)
+        ok (2, 3, 3)
+
+        with self.assertRaises(Exit) as cm:
+            main_core(['full-help', 'x'])
+        self.assertExit(cm, 1, 'The "full-help" command requires no argument.')
+
+        with self.assertRaises(Exit) as cm:
+            main_core(['add'])
+        self.assertExit(cm, 1, 'The "add" command requires at least 1 '
+                               'argument.')
+
+        with self.assertRaises(Exit) as cm:
+            main_core(['add', '1', '2', '3'])
+        self.assertExit(cm, 1, 'The "add" command requires at most 2 '
+                               'arguments.')
+
+    def test_run_unittest(self):
+
+        original_sys_exit = sys.exit
+        try:
+            def my_exit(ret):
+                wl('Exit: %s', ret)
+            sys.exit = my_exit
+
+            main_core(['test', 'test_w'])
+            self.assertRegex(self.output,
+                '.\n' +
+                '-' * 70 + '\n'
+                'Ran 1 test in .*s\n'
+                '\n'
+                'OK\n'
+                'Exit: 0\n')
+        finally:
+            sys.exit = original_sys_exit
+            self.output = ''
+
+    def test_coverage(self):
+        main_core(['test_coverage'])
+        self.assertCalls([['coverage', 'run', sys.argv[0], 'test'],
+                          ['coverage', 'report'],
+                          ['coverage', 'html']])
+        self.assertOutput('Coverage report ready '
+                          '(open htmlcov/index.html).')
+
+        global call
+        original_call = call
+        try:
+            def my_call(cmd):
+                raise Exit(1, 'msg')
+            call = my_call
+            with self.assertRaises(Exit) as cm:
+                main_core(['test_coverage'])
+            self.assertExit(cm, 1, '''msg
+Probably this means that "coverage" is not installed. You can install coverage
+with "pip install coverage" (you may also need "sudo").''')
+        finally:
+            call = original_call
+
+    def test_main_core(self):
+
+        with self.assertRaises(Exit) as cm:
+            main_core(['nosuchcommand'])
+        self.assertExit(cm, 1, 'Unrecognized command: nosuchcommand.')
+
+    def test_main(self):
+
+        global main_core
+
+        original_sys_exit = sys.exit
+        original_main_core = main_core
+        try:
+
+            def my_exit(ret):
+                wl('Exit: %s', ret)
+            sys.exit = my_exit
+
+            def my_main_core(*args):
+                raise Exit(0, 'msg')
+            main_core = my_main_core
+            main()
+            self.assertOutput('msg')
+
+            def my_main_core(*args):
+                raise Exit(1, 'msg')
+            main_core = my_main_core
+            main()
+            self.assertOutput('Error: msg',
+                              'Exit: 1')
+
+        finally:
+            sys.exit = original_sys_exit
+            main_core = original_main_core
 
 if __name__ == '__main__':
     main()
