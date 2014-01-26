@@ -640,6 +640,34 @@ def show(options):
             print 'Sum:', time_sum
 
 
+def add_activity(options, activity):
+    actions, happenings, events, activities = collect_everything(options)
+
+    if activity == 'stop':
+        if len(events) > 0 and events[-1].ongoing:
+            print '"%s" activity stopped' % (events[-1].activity,)
+            add(options, activity)
+        else:
+            print 'Do nothing: there is nothing to stop.'
+    elif len(events) == 0:
+        add(options, activity)
+        print '"%s" activity started' % (activity,)
+    elif events[-1].ongoing:
+        if events[-1].activity == activity:
+            print 'Do nothing: "%s" activity is going on anyway.' % \
+                  (activity,)
+        else:
+            add(options, activity)
+            print '"%s" activity started, "%s" activity stopped' % \
+                  (activity, events[-1].activity)
+    else:
+        if events[-1].activity == activity:
+            add(options, activity)
+            print '"%s" activity resumed' % (activity,)
+        else:
+            add(options, activity)
+            print '"%s" activity started' % (activity,)
+
 def add(options, action):
     if options.actionfile == 'ALL':
         print 'Error: Action file "ALL" is not accepted by "add".'
@@ -672,9 +700,14 @@ def list_actionfiles(options):
 
 def quickadd(options, args):
 
-    # If we have a parameter, just pass it to "add"
-    if len(args) >= 1:
+    # If we have an interval, just pass it to "add"
+    if len(args) > 1:
         add(options, ' '.join(args))
+        return
+
+    # If we have an activity, just pass it to "add_activity"
+    if len(args) == 1:
+        add_activity(options, args[0])
         return
 
     # If we don't have a parameter...
