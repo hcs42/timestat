@@ -627,6 +627,21 @@ def collect_everything(options):
 ##### Command functions #####
 
 
+def show_daily_sum(options):
+    actions, happenings, events, activities = collect_everything(options)
+    d = {}
+    for event in events:
+        x = event.starttime.strftime('%Y-%m-%d')
+        d.setdefault(x, 0)
+        d[x] += event.timelen
+    for k in sorted(d.keys()):
+        wl('%s%s%s (%s)',
+           k,                              # date
+           (' ' if d[k] >= 3600 else ''),  # space
+           'x' * (d[k] // 3600),           # number of hours
+           seconds_to_hhmm(d[k]))
+
+
 def show_weekly_sum(options):
     actions, happenings, events, activities = collect_everything(options)
     d = {}
@@ -1095,6 +1110,9 @@ def main_core(input_args):
     elif args[0] == 'show':
         check_args(args, 0)
         show(options)
+    elif args[0] == 'show-daily-sum':
+        check_args(args, 0)
+        show_daily_sum(options)
     elif args[0] == 'show-weekly-sum':
         check_args(args, 0)
         show_weekly_sum(options)
@@ -2107,6 +2125,13 @@ class TestTimestat(unittest.TestCase):
 
         main_core(['show', '--sum'])
         self.assertOutput('Sum: 05:45')
+
+        main_core(['show-daily-sum'])
+        self.assertOutput('1872-03-18 x (01:05)',
+                          '1872-03-25 (00:10)',
+                          '1872-04-01 x (01:00)',
+                          '1872-04-08 x (01:30)',
+                          '1872-04-22 xx (02:00)')
 
         main_core(['show-weekly-sum'])
         self.assertOutput('1872-12 x',
