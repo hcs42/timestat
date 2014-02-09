@@ -14,7 +14,7 @@
 # You should have received a copy of the GNU General Public License along with
 # Timestat.  If not, see <http://www.gnu.org/licenses/>.
 
-# Copyright (C) 2009-2013 Csaba Hoch
+# Copyright (C) 2009-2014 Csaba Hoch
 
 
 """Program for creating time statistics about activities one does.
@@ -968,7 +968,7 @@ Commands:
   show-weekly-sums      Show weekly summary about time spent.
   show-status           Show the current activity.
   show-targets          Show targets.
-  test                  Run unit tests''', version = '%prog 2.0')
+  test                  Run unit tests''', version = '%prog 3.0')
 
     # Common options
     parser.add_option('-f', '--actionfiles', dest='actionfiles',
