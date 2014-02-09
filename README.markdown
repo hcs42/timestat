@@ -441,10 +441,10 @@ Example:
 
 Usage:
 
-    timestat print actions
-    timestat print events
-    timestat print happenings
-    timestat print activities
+    timestat [options] print actions
+    timestat [options] print events
+    timestat [options] print happenings
+    timestat [options] print activities
 
 Print all objects of the given type.
 
