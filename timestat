@@ -700,7 +700,7 @@ def show_weekly_sum(options):
         year, week_number = key
         return isoweek_to_date(year, week_number, 1)
     def key_to_text(key):
-        return '%s-%02d' % key
+        return '%s-w%02d' % key
     return show_sum(options, datetime_to_key, key_to_date, key_to_text, 7)
 
 
@@ -2308,51 +2308,51 @@ class TestTimestat(unittest.TestCase):
         # show-sum weekly
 
         main_core(['show-sum', 'weekly'])
-        self.assertOutput('1872-12 x',
-                          '1872-13',
-                          '1872-14 x',
-                          '1872-15 x',
-                          '1872-17 xx')
+        self.assertOutput('1872-w12 x',
+                          '1872-w13',
+                          '1872-w14 x',
+                          '1872-w15 x',
+                          '1872-w17 xx')
 
         main_core(['show-sum', 'weekly', '--show-time'])
-        self.assertOutput('1872-12 (01:05) x',
-                          '1872-13 (00:10)',
-                          '1872-14 (01:00) x',
-                          '1872-15 (01:30) x',
-                          '1872-17 (02:00) xx')
+        self.assertOutput('1872-w12 (01:05) x',
+                          '1872-w13 (00:10)',
+                          '1872-w14 (01:00) x',
+                          '1872-w15 (01:30) x',
+                          '1872-w17 (02:00) xx')
 
         main_core(['show-sum', 'weekly', '--fill'])
-        self.assertOutput('1872-12 x',
-                          '1872-13',
-                          '1872-14 x',
-                          '1872-15 x',
-                          '1872-16',
-                          '1872-17 xx',
-                          '1872-18',
-                          '1872-19')
+        self.assertOutput('1872-w12 x',
+                          '1872-w13',
+                          '1872-w14 x',
+                          '1872-w15 x',
+                          '1872-w16',
+                          '1872-w17 xx',
+                          '1872-w18',
+                          '1872-w19')
 
         main_core(['show-sum', 'weekly', '--to', 'w14-6'])
-        self.assertOutput('1872-12 x',
-                          '1872-13',
-                          '1872-14 x')
+        self.assertOutput('1872-w12 x',
+                          '1872-w13',
+                          '1872-w14 x')
 
         main_core(['show-sum', 'weekly', '--fill', '--from', '1872-w14-1'])
-        self.assertOutput('1872-14 x',
-                          '1872-15 x',
-                          '1872-16',
-                          '1872-17 xx',
-                          '1872-18',
-                          '1872-19')
+        self.assertOutput('1872-w14 x',
+                          '1872-w15 x',
+                          '1872-w16',
+                          '1872-w17 xx',
+                          '1872-w18',
+                          '1872-w19')
 
         main_core(['show-sum', 'weekly', '--fill', '--to', '1870-w14-1'])
         self.assertOutput('')
 
         main_core(['show', '-w'])
-        self.assertOutput('1872-12 x',
-                          '1872-13',
-                          '1872-14 x',
-                          '1872-15 x',
-                          '1872-17 xx')
+        self.assertOutput('1872-w12 x',
+                          '1872-w13',
+                          '1872-w14 x',
+                          '1872-w15 x',
+                          '1872-w17 xx')
 
         # show-monthly-sum
 

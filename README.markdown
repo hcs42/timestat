@@ -379,12 +379,12 @@ Example (one `x` means one hour spent):
     2014-01-24 (08:34) xxxxxxxx
 
     $ timestat show-sum weekly --show-time -O ^hobby
-    2014-01 (21:20) xxxxxxxxxxxxxxxxxxxxx
-    2014-02 (07:15) xxxxxxx
-    2014-03 (13:06) xxxxxxxxxxxxx
-    2014-04 (16:52) xxxxxxxxxxxxxxxx
-    2014-05 (09:24) xxxxxxxxx
-    2014-06 (18:04) xxxxxxxxxxxxxxxxxx
+    2014-w01 (21:20) xxxxxxxxxxxxxxxxxxxxx
+    2014-w02 (07:15) xxxxxxx
+    2014-w03 (13:06) xxxxxxxxxxxxx
+    2014-w04 (16:52) xxxxxxxxxxxxxxxx
+    2014-w05 (09:24) xxxxxxxxx
+    2014-w06 (18:04) xxxxxxxxxxxxxxxxxx
 
 ### show-targets
 
