@@ -1,3 +1,6 @@
+test:
+	./timestat test
+
 all: README.markdown.html
 
 README.markdown.html: README2.markdown

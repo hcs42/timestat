@@ -48,10 +48,17 @@ class Exit(Exception):
 ##### Helper functions: printing text #####
 
 
-def wl(s, *data):
-    if data is not None:
+def w(s, *data):
+    if len(data) > 0:
         s = s % data
     sys.stdout.write(s)
+
+
+def wl(s=None, *data):
+    if len(data) > 0:
+        s = s % data
+    if s is not None:
+        sys.stdout.write(s)
     sys.stdout.write('\n')
     sys.stdout.flush()
 
@@ -120,6 +127,10 @@ def str_to_date(s):
                    int(r.group(2)))
 
     raise Exit(1, 'Not a valid date: %s', s)
+
+
+def date_to_str(d):
+    return d.strftime('%Y-%m-%d')
 
 
 def str_to_datetime(s):
@@ -627,34 +638,65 @@ def collect_everything(options):
 ##### Command functions #####
 
 
-def show_daily_sum(options):
+def show_sum(options, datetime_to_key, key_to_date, key_to_text, step_days):
+
+    # Fill in the dictionary of sums
     actions, happenings, events, activities = collect_everything(options)
     d = {}
     for event in events:
-        x = event.starttime.strftime('%Y-%m-%d')
-        d.setdefault(x, 0)
-        d[x] += event.timelen
+        key = datetime_to_key(event.starttime)
+        d.setdefault(key, 0)
+        d[key] += event.timelen
+
+    # Fill the missing weeks
+    if options.fill:
+        if options.since is not None:
+            start_day = options.since
+        else:
+            if len(d) > 0:
+                start_day = key_to_date(min(d.keys()))
+            else:
+                start_day = None
+        if start_day is not None:
+            step = datetime.timedelta(days=step_days)
+            day = start_day
+            while day <= options.until:
+                key = datetime_to_key(day)
+                if not key in d:
+                    d[key] = 0
+                day += step
+
+    # Print the sums
     for k in sorted(d.keys()):
-        wl('%s%s%s (%s)',
-           k,                              # date
-           (' ' if d[k] >= 3600 else ''),  # space
-           'x' * (d[k] // 3600),           # number of hours
-           seconds_to_hhmm(d[k]))
+        w(key_to_text(k))               # date (range)
+        if options.show_time:
+            w(' (%s)', seconds_to_hhmm(d[k])) # time with hh:mm format
+        w(' ' if d[k] >= 3600 else '')  # space
+        w('x' * (d[k] // 3600))         # number of hours
+        wl()
+
+def show_daily_sum(options):
+    # key = (year, month, day)
+    def datetime_to_key(dt):
+        return (dt.year, dt.month, dt.day)
+    def key_to_date(key):
+        return datetime.date(*key)
+    def key_to_text(key):
+        return '%04d-%02d-%02d' % key
+    return show_sum(options, datetime_to_key, key_to_date, key_to_text, 1)
 
 
 def show_weekly_sum(options):
-    actions, happenings, events, activities = collect_everything(options)
-    d = {}
-    for event in events:
-        year, week_number, week_day = event.starttime.isocalendar()
-        x = '%s-%02d' % (year, week_number)
-        d.setdefault(x, 0)
-        d[x] += event.timelen
-    for k in sorted(d.keys()):
-        wl('%s%s%s',
-           k,                             # year-week
-           (' ' if d[k] >= 3600 else ''),  # space
-           'x' * (d[k] // 3600))           # number of hours
+    # key = (year, week_number)
+    def datetime_to_key(dt):
+        year, week_number, week_day = dt.isocalendar()
+        return (year, week_number)
+    def key_to_date(key):
+        year, week_number = key
+        return isoweek_to_date(year, week_number, 1)
+    def key_to_text(key):
+        return '%s-%02d' % key
+    return show_sum(options, datetime_to_key, key_to_date, key_to_text, 7)
 
 
 def show_status(options):
@@ -950,6 +992,13 @@ Commands:
     parser.add_option('-w', '--weekly-sum', dest='weekly_sum',
                       action='store_true', default=False,
                       help='Print a weekly summary.')
+    parser.add_option('--fill', dest='fill',
+                      action='store_true', default=False,
+                      help='When printing a summary, print all dates (not '
+                           'only those with actual activity).')
+    parser.add_option('--show-time', dest='show_time',
+                      action='store_true', default=False,
+                      help='When printing a summary, print time too.')
     parser.add_option('-s', '--sum', dest='sum',
                       action='store_true', default=False,
                       help='Print only the sum of the activity time.')
@@ -993,6 +1042,11 @@ Commands:
         options.since = str_to_date(options.since)
 
     options.until = str_to_date(options.until)
+
+    if options.since is not None and options.since > options.until:
+        raise Exit(1, '"Since" date (%s) is after "until" date (%s).',
+                   (date_to_str(options.since),
+                    date_to_str(options.until)))
 
     if options.today:
         options.day = 'today'
@@ -1359,15 +1413,21 @@ class TestTimestat(unittest.TestCase):
 
     def test_w(self):
 
+        w('c')
+        self.assertOutput('c')
+        w('%s', 'd')
+        self.assertOutput('d')
+        w('%s', '%d')
+        self.assertOutput('%d')
+        w('%s: %s', 'a', 'b')
+        self.assertOutput('a: b')
+
         wl('c')
         self.assertOutput('c')
-
         wl('%s', 'd')
         self.assertOutput('d')
-
         wl('%s', '%d')
         self.assertOutput('%d')
-
         wl('%s: %s', 'a', 'b')
         self.assertOutput('a: b')
 
@@ -1418,6 +1478,10 @@ class TestTimestat(unittest.TestCase):
     def test_datetime_to_str(self):
         day = datetime.datetime(1952, 3, 11, 4, 42, 42)
         self.assertEqual(datetime_to_str(day), '1952-03-11 04:42:42')
+
+    def test_date_to_str(self):
+        day = datetime.datetime(1952, 3, 11)
+        self.assertEqual(date_to_str(day), '1952-03-11')
 
     def test_get_now(self):
         self.assertEqual(get_now(), datetime.datetime(2000, 1, 1, 0, 0, 0))
@@ -2109,6 +2173,8 @@ class TestTimestat(unittest.TestCase):
                                    [1872-04-22 22:05:00] 2:00 myotherwork
                                    ''')
 
+        self.now = [1872, 5, 10, 0, 0, 0]
+
         main_core(['show'])
         self.assertOutput('myotherwork: 05:20',
                           'mywork: 00:25',
@@ -2127,11 +2193,44 @@ class TestTimestat(unittest.TestCase):
         self.assertOutput('Sum: 05:45')
 
         main_core(['show-daily-sum'])
-        self.assertOutput('1872-03-18 x (01:05)',
+        self.assertOutput('1872-03-18 x',
+                          '1872-03-25',
+                          '1872-04-01 x',
+                          '1872-04-08 x',
+                          '1872-04-22 xx')
+
+        main_core(['show-daily-sum', '--show-time'])
+        self.assertOutput('1872-03-18 (01:05) x',
                           '1872-03-25 (00:10)',
-                          '1872-04-01 x (01:00)',
-                          '1872-04-08 x (01:30)',
-                          '1872-04-22 xx (02:00)')
+                          '1872-04-01 (01:00) x',
+                          '1872-04-08 (01:30) x',
+                          '1872-04-22 (02:00) xx')
+
+        main_core(['show-daily-sum', '--fill', '--show-time',
+                   '--since', '1872-03-17',
+                   '--until', '1872-03-26'])
+        self.assertOutput('1872-03-17 (00:00)',
+                          '1872-03-18 (01:05) x',
+                          '1872-03-19 (00:00)',
+                          '1872-03-20 (00:00)',
+                          '1872-03-21 (00:00)',
+                          '1872-03-22 (00:00)',
+                          '1872-03-23 (00:00)',
+                          '1872-03-24 (00:00)',
+                          '1872-03-25 (00:10)',
+                          '1872-03-26 (00:00)')
+
+        main_core(['show-daily-sum', '--fill', '--show-time',
+                   '--until', '1872-03-26'])
+        self.assertOutput('1872-03-18 (01:05) x',
+                          '1872-03-19 (00:00)',
+                          '1872-03-20 (00:00)',
+                          '1872-03-21 (00:00)',
+                          '1872-03-22 (00:00)',
+                          '1872-03-23 (00:00)',
+                          '1872-03-24 (00:00)',
+                          '1872-03-25 (00:10)',
+                          '1872-03-26 (00:00)')
 
         main_core(['show-weekly-sum'])
         self.assertOutput('1872-12 x',
@@ -2139,6 +2238,39 @@ class TestTimestat(unittest.TestCase):
                           '1872-14 x',
                           '1872-15 x',
                           '1872-17 xx')
+
+        main_core(['show-weekly-sum', '--show-time'])
+        self.assertOutput('1872-12 (01:05) x',
+                          '1872-13 (00:10)',
+                          '1872-14 (01:00) x',
+                          '1872-15 (01:30) x',
+                          '1872-17 (02:00) xx')
+
+        main_core(['show-weekly-sum', '--fill'])
+        self.assertOutput('1872-12 x',
+                          '1872-13',
+                          '1872-14 x',
+                          '1872-15 x',
+                          '1872-16',
+                          '1872-17 xx',
+                          '1872-18',
+                          '1872-19')
+
+        main_core(['show-weekly-sum', '--until', 'w14-6'])
+        self.assertOutput('1872-12 x',
+                          '1872-13',
+                          '1872-14 x')
+
+        main_core(['show-weekly-sum', '--fill', '--since', '1872-w14-1'])
+        self.assertOutput('1872-14 x',
+                          '1872-15 x',
+                          '1872-16',
+                          '1872-17 xx',
+                          '1872-18',
+                          '1872-19')
+
+        main_core(['show-weekly-sum', '--fill', '--until', '1870-w14-1'])
+        self.assertOutput('')
 
         main_core(['show', '-w'])
         self.assertOutput('1872-12 x',
@@ -2177,6 +2309,13 @@ class TestTimestat(unittest.TestCase):
 
         main_core(['show', '--day', 'yy', '--nosum'])
         self.assertOutput('work1: 00:10')
+
+        with self.assertRaises(Exit) as cm:
+            main_core(['show', '--since', '1999-01-02',
+                               '--until', '1999-01-01'])
+        self.assertExit(cm, 1, '"Since" date (1999-01-02) is after "until" '
+                               'date (1999-01-01).')
+
 
     def test_week(self):
 

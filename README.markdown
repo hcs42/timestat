@@ -198,6 +198,10 @@ Option:
 
 TODO
 
+### show-daily-sum
+
+It has the same parameters as `show-weekly-sum`.
+
 ### show-targets
 
 TODO
@@ -231,7 +235,8 @@ Options:
   `--day DATE` is equivalent to `--since DATE --until DATE`.
 - `-t, --today` is equivalent to `--day today`.
 - `-y, --yesterday` is equivalent to `--day yesterday`.
-- `-w, --weekly-sum`: Print a weekly summary.
+- `-w, --weekly-sum`: Print a weekly summary (same as the `show-weekly-sum`
+  command).
 - `-s, --sum`: Print only the sum of the activity time.
 - `-i, --ignore-activities`: Ignore the given activities. The activities should
   be separated with a colon.
