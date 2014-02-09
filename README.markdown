@@ -98,21 +98,42 @@ Timestat is a command line tool, and its general syntax is the following:
 - `-O, --only-pattern`: Consider only the activities that match the pattern.
   `-i` and `-I` are stronger than `-o` and `-O`, i.e. if something is both
   ignored and included, it will be ignore. This way one can write queries like
-  "all work activity except for programming".
+  "all work activity except for programming". The following command prints all
+  activities that start with "work" except for "work/meeting" (e.g.
+  "work/programming" is included but "work/meeting" and "mywork" are not):
+
+      timestat show -O "^work" -i work/meeting
+
+- `--only-expr ONLY_EXPR`: `ONLY_EXPR` should be a Python 3 expression where the
+  `h` variable contains the `Happening` object. The expression should return a
+  boolean value. The effect of this option is those happenings will be ignored
+  for which the expression's value is `False`. For example the following command
+  considers only activities that started between 8am and 4pm:
+
+      timestat show --only-expr \
+        'h.is_event() and 8 <= int(h.starttime.strftime("%H")) <= 16'
+
+  The `is_event` check is needed because targets are also filtered, but they are
+  not events and hence they don't have a `starttime` data member.
+
+  As another example, let's list all occasions when I worked on the weekend:
+
+      timestat print events  -O work --only-expr \
+        'h.is_event() and int(h.starttime.strftime("%w")) in (6, 7)'
 
 ### Options for specifying dates
 
-- `--since DATE`: Work with actions since this date. (Format: see
+- `--from DATE`: Ignore happenings before this date. (Format: see
   below.)
-- `--until DATE`: Work with actions until this date. (Format: see
-  below.) The default value is `today`, which has the advantage that
-  future targets are not yet taken into account.
-- `-d DATE, --day DATE`: Work with actions that happened/started during this day.
-  (Format: see below.) `--day DATE` is equivalent to `--since DATE --until
+- `--to DATE`: Ignore happenings after this date. (Format: see below.) The
+  default value is `today`, which has the advantage that future targets are not
+  yet taken into account.
+- `-d DATE, --day DATE`: Work with actions that happened/started during this
+  day. (Format: see below.) `--day DATE` is equivalent to `--from DATE --to
   DATE`.
 - `--week ISO_WEEK_NUMBER`: Work with actions that happened/started during this
-  week. `--week ISO_WEEK_NUMBER` is equivalent to `--since wISO_WEEK_NUMBER-1
-  --until wISO_WEEK_NUMBER-7`.
+  week. `--week ISO_WEEK_NUMBER` is equivalent to `--from wISO_WEEK_NUMBER-1
+  --to wISO_WEEK_NUMBER-7`.
 - `-t, --today` is equivalent to `--day today`.
 - `-y, --yesterday` is equivalent to `--day yesterday`.
 
@@ -129,6 +150,12 @@ Date formats:
 - `YYYY-wWW-D`: ISO week day (e.g. `2000-w02-3` is the Wednesday of week 2 in
   2000).
 - `wWW-D`: ISO week day in the current year.
+
+### full-help: print this README
+
+Usage:
+
+    timestat full-help
 
 ### add: add an action to the action file
 
@@ -183,9 +210,17 @@ Otherwise (i.e. if no action or activity pattern is specified):
   'stopped' or a previous activity), and go into that state (i.e.
   either stop, or start the previous activity).
 
-Options:
+Options described in "Common options":
 
-- `-f ACTIONFILES, --actionfiles ACTIONFILES`: see "Common Options".
+- `-f ACTIONFILES, --actionfiles ACTIONFILES`
+- `-i, --ignore-activities`
+- `-o, --only-activities`
+- `-I, --ignore-pattern`
+- `-O, --only-pattern`
+- `--only-expr ONLY_EXPR`
+
+Other options:
+
 - `-a ACTIONFILE_SUBSTR, --actionfile ACTIONFILE_SUBSTR`: See the `add` command.
 
 Notes:
@@ -197,6 +232,22 @@ Notes:
   (or the default one).
 
 Examples: see the [Quick demo](#quick-demo) above.
+
+Example about the activity pattern:
+
+    $ tq %hobby/cp   # I want to start work on a task that matches the
+                     # "hobby/cp" regular expression
+    Select the desired match (empty line = cancel):
+    1: hobby/cp/erl-utils
+    2: hobby/cp/ew
+    3: hobby/cp/exponwords
+    4: hobby/cp/offline-issues
+    5: hobby/cp/permet
+    6: hobby/cp/vim-erlang-tags
+    7: hobby/cp/vim-erlang-tags/python-rewrite
+    > 2              # The number "2" is typed by the user
+    "hobby/cp/ew" activity started
+    $
 
 ### edit: open the action file in a text editor
 
@@ -243,11 +294,12 @@ Options described in "Common options":
 - `-o, --only-activities`
 - `-I, --ignore-pattern`
 - `-O, --only-pattern`
+- `--only-expr ONLY_EXPR`
 
 Options described in "Options for specifying dates":
 
-- `--since DATE`
-- `--until DATE`
+- `--from DATE`
+- `--to DATE`
 - `-d DATE, --day DATE`
 - `-t, --today`
 - `-y, --yesterday`
@@ -274,13 +326,13 @@ Examples:
     $ timestat -c
     myotherwork:20
 
-### show-weekly-sum
+### show-daily-sum: show a daily summary
 
 Usage:
 
-    timestat [options] show-weekly-sum
+    timestat [options] show-daily-sum
 
-Show a summary about how much time was spent on activities.
+Show a summary about how much time was spent on activities per day.
 
 Options described in "Common options":
 
@@ -289,45 +341,161 @@ Options described in "Common options":
 - `-o, --only-activities`
 - `-I, --ignore-pattern`
 - `-O, --only-pattern`
+- `--only-expr ONLY_EXPR`
 
 Options described in "Options for specifying dates":
 
-- `--since DATE`
-- `--until DATE`
+- `--from DATE`
+- `--to DATE`
 - `-d DATE, --day DATE`
 - `-t, --today`
 - `-y, --yesterday`
 
 Other options:
 
-- `--fill`: Print all dates (not only those with actual activity).
+- `--fill`: Print all dates (not only those with time spent).
 - `--show-time`: Print time too.
 
-### show-daily-sum
+Example (one `x` means one hour spent):
 
-It has the same parameters as `show-weekly-sum`.
+    $ timestat show-daily-sum -O ^work
+    2014-01-20 (06:20) xxxxxx
+    2014-01-21 (08:20) xxxxxxxx
+    2014-01-22 (09:34) xxxxxxxxx
+    2014-01-23 (07:19) xxxxxxx
+    2014-01-24 (08:34) xxxxxxxx
+
+### show-weekly-sum: show a weekly summary
+
+Usage:
+
+    timestat [options] show-weekly-sum
+
+Show a summary about how much time was spent on activities per week.
+
+Options described in "Common options":
+
+- `-f ACTIONFILES, --actionfiles ACTIONFILES`
+- `-i, --ignore-activities`
+- `-o, --only-activities`
+- `-I, --ignore-pattern`
+- `-O, --only-pattern`
+- `--only-expr ONLY_EXPR`
+
+Options described in "Options for specifying dates":
+
+- `--from DATE`
+- `--to DATE`
+- `-d DATE, --day DATE`
+- `-t, --today`
+- `-y, --yesterday`
+
+Other options:
+
+- `--fill`: Print all dates (not only those with time spent).
+- `--show-time`: Print time too.
+
+Example:
+
+    $ timestat show-weekly-sum --show-time -O ^hobby
+    2014-01 (21:20) xxxxxxxxxxxxxxxxxxxxx
+    2014-02 (07:15) xxxxxxx
+    2014-03 (13:06) xxxxxxxxxxxxx
+    2014-04 (16:52) xxxxxxxxxxxxxxxx
+    2014-05 (09:24) xxxxxxxxx
+    2014-06 (18:04) xxxxxxxxxxxxxxxxxx
 
 ### show-targets
 
-TODO
+Usage:
+
+    timestat [options] st
+    timestat [options] show-targets
+
+Show a summary about the targets. See the "Targets" section for more information
+about targets.
+
+Options described in "Common options":
+
+- `-f ACTIONFILES, --actionfiles ACTIONFILES`
+- `-i, --ignore-activities`
+- `-o, --only-activities`
+- `-I, --ignore-pattern`
+- `-O, --only-pattern`
+- `--only-expr ONLY_EXPR`
+
+Options described in "Options for specifying dates":
+
+- `--from DATE`
+- `--to DATE`
+- `-d DATE, --day DATE`
+- `-t, --today`
+- `-y, --yesterday`
+
+Example: see the "Targets" section.
 
 ### show-status
 
-TODO
+Usage:
 
-### print: print objects (for troubleshooting)
+    timestat [options] ss
+    timestat [options] show-status
+
+Show the current or last activity.
+
+Options described in "Common options":
+
+- `-f ACTIONFILES, --actionfiles ACTIONFILES`
+
+Example:
+
+    $ timestat show-status
+    State: on
+    Current activity: hobby/timestat
+    Start time: 15:37
+    Current time: 15:44
+    Time since started: 00:06
+
+### print: print objects
 
 Usage:
 
     timestat print actions
     timestat print events
+    timestat print happenings
     timestat print activities
+
+Print all objects of the given type.
+
+Options described in "Common options":
+
+- `-f ACTIONFILES, --actionfiles ACTIONFILES`
+- `-i, --ignore-activities`
+- `-o, --only-activities`
+- `-I, --ignore-pattern`
+- `-O, --only-pattern`
+- `--only-expr ONLY_EXPR`
+
+Options described in "Options for specifying dates":
+
+- `--from DATE`
+- `--to DATE`
+- `-d DATE, --day DATE`
+- `-t, --today`
+- `-y, --yesterday`
 
 ### test: run unit tests
 
 Usage:
 
     timestat test
+
+### test-coverage: run unit tests
+
+Usage:
+
+    timestat tc
+    timestat test-coverage
 
 Action files
 ------------
@@ -359,6 +527,10 @@ First let's get some terminology out of the way:
 
   1. Working 30:04 minutes on `mywork`.
   2. Working 10 minutes on `myotherwork`.
+
+- A **happening** is either an event or an action that cannot be converted into
+  an event. Currently this means that a happening is either an event or a
+  target.
 
 As you see, all **lines** in the action file describe an action, and
 they must follow the same format: a date (in the format above) and an
@@ -435,6 +607,50 @@ So for example the following is a valid action file:
 In this example, the activities are called "mywork", "job#01" and
 "job#02".
 
+### Targets
+
+You can define targets about how much you want to spend with a certain task
+group.
+
+For example your action file might contain the following:
+
+    [2013-02-01 00:00:00] increase-target work 8:00
+    [2013-02-02 00:00:00] increase-target work 8:00
+    [2013-02-03 00:00:00] increase-target work 8:00
+    [2013-02-04 00:00:00] increase-target work 8:00
+    [2013-02-01 09:00:00] work
+    [2013-02-01 17:00:00] stop # 8 hours of work
+    [2013-02-02 09:00:00] work
+    [2013-02-02 17:00:00] stop # 8 hours of work
+    [2013-02-03 09:00:00] work
+    [2013-02-03 18:00:00] stop # 9 hours of work
+    [2013-02-04 09:00:00] work
+    [2013-02-04 15:00:00] stop # 6 ours of work
+
+Timestat can produce the following reports:
+
+    $ timestat
+    work: 31:00
+    Sum: 31:00
+
+    $ timestat show-targets
+    Target name: work
+    Target time: 32:00
+    Actual time: 31:00
+    Difference: -01:00
+
+Only targets between `from` and `to` are considered:
+
+    $ timestat show-targets --day 2013-02-03
+    Target name: work
+    Target time: 08:00
+    Actual time: 09:00
+    Difference: 01:00
+
+Since `to` is "today" by default, the future targets are ignored by default, so
+you can add all workdays in the month is advance, you can still track your
+balance every day.
+
 Bashrc
 ------
 
@@ -460,3 +676,29 @@ action file:
 
     # Bashrc of machine 2:
     export ACTIONFILES=.../machine_2.txt:.../machine_1.txt
+
+How to contribute
+-----------------
+
+Timestat's unit tests provide 100% code coverage and I want to keep it that way.
+So I will accept pull requests only if the new code has proper unit tests and
+keeps this rule. This is fortunately easy because Timestat has built-in commands
+for executing all unit tests measuring their coverage (`test` and
+`test-coverage`).
+
+It is recommended to put the following code into `'.git/hooks/pre-commit'`
+(`chmod +x` is also necessary) before creating commits:
+
+    #!/bin/bash
+
+    if ./timestat test; then
+        true # skip
+    else
+        echo "pre-commit hook: error: unit test failed, no commit."
+        exit 1
+    fi
+
+    if grep ' \+$' timestat README.markdown -q; then
+        echo "pre-commit hook: error: trailing white space"
+        exit 1
+    fi

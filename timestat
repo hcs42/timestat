@@ -2597,7 +2597,7 @@ class TestTimestat(unittest.TestCase):
         main_core(['full-help'])
         try:
             self.assertEqual(self.output[:15], '**Timestat** is')
-            self.assertEqual(self.output[-15:], '/machine_1.txt\n')
+            self.assertEqual(self.output[-3:], 'fi\n')
         finally:
             self.output = ''
 

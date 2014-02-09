@@ -1,51 +1,19 @@
-- Activity filter: --filter=day:1-5 --filter=hour:8-16
-    - move "between" filtering into "events"
-    - maybe deprecate --ignore-activities in favor of this
 - Show errors when encountering negative intervals and unmatched stops
     - This is possibly error:
         [...17:00:00] mywork
         [...16:20:00] myotherwork
-      Maybe the actions files should be sorted after all?
-- merge all actionfiles when they are read (so that one can start an activity
-  and another one can stop it)
-
-- quickadd should select from existing activities:
-
-    $ timestat quickadd ti
-    "hobby/timestat" activity started
-    $
-
-    $ timestat quickadd sta
-    The substring "sta" occurs in several activities. Which one do you want to
-    start?
-    [1] hobby/timestat
-    [2] work/erlang-install
-    > _
-
-    $ timestat quickadd xx
-    Substring not contained by any activity: xx
-    Do you want to create a new activity called "xx"? [y/n] _
 
 - timestat aliases:
 
     $ timestat quickadd e
     "hobby/english/ew/prac" activity started
 
-- timestat switch # switch to other activity
 - timestat --interactive switch
     - switch to other activity by showing the last 10 tasks
 - more support for hierarchy?
     - work/x, work/y, hobby/a, hobby/b, hobby/ew/configuration
-    - timestat --prefix=work/
-    - TIMESTAT_PREFIX
-    - --filter work
     - easy renaming for the items in the hierarchy
     - warning when a new task is created
-- review statistics, nicer outputs, aggregated week information
+- review statistics, nicer outputs
 - comments:
     - [...] mywork # fixing bug 23 -- do I want this?
-- normalization:
-    - intervals should use hh:mm in action files
-    - -H should be the default
-- command to print or open readme
-- add commands to --help
