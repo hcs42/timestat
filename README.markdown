@@ -87,6 +87,48 @@ Timestat is a command line tool, and its general syntax is the following:
 ### Common options
 
 - `-v, --verbose`: Display verbose printouts.
+- `-f ACTIONFILES, --actionfiles ACTIONFILES`: Action files to be used,
+  separated with a colon. If not specified, the `ACTIONFILES` environmental
+  variable is used.
+- `-i, --ignore-activities`: Ignore the given activities. The activities should
+  be separated with a colon.
+- `-o, --only-activities`: Consider only the given activities. The activities
+  should be separated with a colon.
+- `-I, --ignore-pattern`: Ignore the activities that match the pattern.
+- `-O, --only-pattern`: Consider only the activities that match the pattern.
+  `-i` and `-I` are stronger than `-o` and `-O`, i.e. if something is both
+  ignored and included, it will be ignore. This way one can write queries like
+  "all work activity except for programming".
+
+### Options for specifying dates
+
+- `--since DATE`: Work with actions since this date. (Format: see
+  below.)
+- `--until DATE`: Work with actions until this date. (Format: see
+  below.) The default value is `today`, which has the advantage that
+  future targets are not yet taken into account.
+- `-d DATE, --day DATE`: Work with actions that happened/started during this day.
+  (Format: see below.) `--day DATE` is equivalent to `--since DATE --until
+  DATE`.
+- `--week ISO_WEEK_NUMBER`: Work with actions that happened/started during this
+  week. `--week ISO_WEEK_NUMBER` is equivalent to `--since wISO_WEEK_NUMBER-1
+  --until wISO_WEEK_NUMBER-7`.
+- `-t, --today` is equivalent to `--day today`.
+- `-y, --yesterday` is equivalent to `--day yesterday`.
+
+Date formats:
+
+- `t`, `today`
+- `y`, `yesterday`
+- `yy`: the day before yesterday.
+- n times `y`: n days before yesterday.
+- `YYYY-MM-DD`
+- `MM-DD`: Given day in the current year. (Be careful with it in
+  January, since `12-xx` means the end of the current year, which is 12 months
+  in the future).
+- `YYYY-wWW-D`: ISO week day (e.g. `2000-w02-3` is the Wednesday of week 2 in
+  2000).
+- `wWW-D`: ISO week day in the current year.
 
 ### add: add an action to the action file
 
@@ -100,9 +142,7 @@ action.
 
 Options:
 
-- `-f ACTIONFILES, --actionfiles ACTIONFILES`: Action files to be used,
-  separated with a colon. If not specified, the `ACTIONFILES` environmental
-  variable is used.
+- `-f ACTIONFILES, --actionfiles ACTIONFILES`: see "Common Options".
 - `-a ACTIONFILE_SUBSTR, --actionfile ACTIONFILE_SUBSTR`: If
   `--actionfile` is specified, then `ACTION` will be added to the
   action file whose name contains `ACTIONFILE_SUBSTR`. If
@@ -145,13 +185,8 @@ Otherwise (i.e. if no action or activity pattern is specified):
 
 Options:
 
-- `-f ACTIONFILES, --actionfiles ACTIONFILES`: Action files to be used,
-  separated with a colon. If not specified, the `ACTIONFILES` environmental
-  variable is used.
-- `-a ACTIONFILE_SUBSTR, --actionfile ACTIONFILE_SUBSTR`: If
-  `--actionfile` is specified, then `ACTION` will be added to the
-  action file whose name contains `ACTIONFILE_SUBSTR`. If
-  `--actionfile` is not specified, the first action file will be used.
+- `-f ACTIONFILES, --actionfiles ACTIONFILES`: see "Common Options".
+- `-a ACTIONFILE_SUBSTR, --actionfile ACTIONFILE_SUBSTR`: See the `add` command.
 
 Notes:
 
@@ -174,9 +209,7 @@ The EDITOR environment variable is used to open the files.
 
 Options:
 
-- `-f ACTIONFILES, --actionfiles ACTIONFILES`: Action files to be used,
-  separated with a colon. If not specified, the `ACTIONFILES` environmental
-  variable is used.
+- `-f ACTIONFILES, --actionfiles ACTIONFILES`: see "Common Options".
 - `-a ACTIONFILE_SUBSTR, --actionfile ACTIONFILE`: Specify which
   action file to open in the editor. If not specified, the first
   action file will be opened. If `--actionfile` is `"ALL"`, then all
@@ -190,25 +223,7 @@ Usage:
 
 Option:
 
-- `-f ACTIONFILES, --actionfiles ACTIONFILES`: Action files to be used,
-  separated with a colon. If not specified, the `ACTIONFILES` environmental
-  variable is used.
-
-### show-weekly-sum
-
-TODO
-
-### show-daily-sum
-
-It has the same parameters as `show-weekly-sum`.
-
-### show-targets
-
-TODO
-
-### show-status
-
-TODO
+- `-f ACTIONFILES, --actionfiles ACTIONFILES`: see "Common Options".
 
 ### show: show statistics about the activities
 
@@ -221,37 +236,30 @@ Different statistics are available with different options. The default
 format is to print all activities with the minutes that have been
 spent on them.
 
-Options:
+Options described in "Common options":
 
-- `-f ACTIONFILES, --actionfiles ACTIONFILES`: Action files to be used,
-  separated with a colon. If not specified, the `ACTIONFILES` environmental
-  variable is used.
-- `--since DATE`: Work with actions since this date. (Format: see
-  below.)
-- `--until DATE`: Work with actions until this date. (Format: see
-  below.) The default value is `today`, which has the advantage that
-  future targets are not yet taken into account.
-- `-d DATE, --day DATE`: Work with actions on this date. (Format: see below.)
-  `--day DATE` is equivalent to `--since DATE --until DATE`.
-- `-t, --today` is equivalent to `--day today`.
-- `-y, --yesterday` is equivalent to `--day yesterday`.
+- `-f ACTIONFILES, --actionfiles ACTIONFILES`
+- `-i, --ignore-activities`
+- `-o, --only-activities`
+- `-I, --ignore-pattern`
+- `-O, --only-pattern`
+
+Options described in "Options for specifying dates":
+
+- `--since DATE`
+- `--until DATE`
+- `-d DATE, --day DATE`
+- `-t, --today`
+- `-y, --yesterday`
+
+Other options:
+
 - `-w, --weekly-sum`: Print a weekly summary (same as the `show-weekly-sum`
   command).
 - `-s, --sum`: Print only the sum of the activity time.
-- `-i, --ignore-activities`: Ignore the given activities. The activities should
-  be separated with a colon.
 - `-c, --current`: Display the name of ongoing task, if any, and the
   time since the last action.
 - `--seconds`: Display the seconds in the printed intervals.
-
-Date formats:
-
-- `t`, `today`
-- `y`, `yesterday`
-- `yyyy-mm-dd`
-- `mm-dd`: Given day in the current year. (Be careful with it in
-  January, since `12-xx` means the end of the current year, not last
-  year.)
 
 Examples:
 
@@ -265,6 +273,47 @@ Examples:
 
     $ timestat -c
     myotherwork:20
+
+### show-weekly-sum
+
+Usage:
+
+    timestat [options] show-weekly-sum
+
+Show a summary about how much time was spent on activities.
+
+Options described in "Common options":
+
+- `-f ACTIONFILES, --actionfiles ACTIONFILES`
+- `-i, --ignore-activities`
+- `-o, --only-activities`
+- `-I, --ignore-pattern`
+- `-O, --only-pattern`
+
+Options described in "Options for specifying dates":
+
+- `--since DATE`
+- `--until DATE`
+- `-d DATE, --day DATE`
+- `-t, --today`
+- `-y, --yesterday`
+
+Other options:
+
+- `--fill`: Print all dates (not only those with actual activity).
+- `--show-time`: Print time too.
+
+### show-daily-sum
+
+It has the same parameters as `show-weekly-sum`.
+
+### show-targets
+
+TODO
+
+### show-status
+
+TODO
 
 ### print: print objects (for troubleshooting)
 
