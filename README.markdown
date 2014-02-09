@@ -1,5 +1,14 @@
-**Timestat** is a program for creating and displaying time statistics about
-activities.
+**Timestat** is a command-line program for creating and displaying time
+statistics about activities.
+
+Timestat's features include:
+
+- Record actions like starting/stopping doing a task.
+- Print different statistics and summaries.
+- Set targets and print statistics about them.
+- Select an activity with a pattern and/or interactively.
+- All information is kept in plain-text files that are easy to edit manually
+  too.
 
 Quick demo
 ==========
