@@ -364,6 +364,7 @@ Other options:
 
 - `--fill`: Print all dates (not only those with time spent).
 - `--show-time`: Print time too.
+- `--avg`: Print the average time spent.
 
 Example (one `x` means one hour spent):
 
@@ -403,6 +404,7 @@ Other options:
 
 - `--fill`: Print all dates (not only those with time spent).
 - `--show-time`: Print time too.
+- `--avg`: Print the average time spent.
 
 Example:
 
@@ -690,10 +692,16 @@ How to contribute
 -----------------
 
 Timestat's unit tests provide 100% code coverage and I want to keep it that way.
-So I will accept pull requests only if the new code has proper unit tests and
-keeps this rule. This is fortunately easy because Timestat has built-in commands
-for executing all unit tests measuring their coverage (`test` and
-`test-coverage`).
+I also want to keep everything documented.
+
+So I will accept pull requests only if:
+
+- The new code has proper unit tests and keeps this rule. This is fortunately
+  easy because Timestat has built-in commands for executing all unit tests
+  measuring their coverage (`test` and `test-coverage`).
+- The new features are documented in the README.
+- The new code does not contain training white space or lines longer than 80
+  characters.
 
 It is recommended to put the following code into `'.git/hooks/pre-commit'`
 (`chmod +x` is also necessary) before creating commits:
@@ -709,5 +717,10 @@ It is recommended to put the following code into `'.git/hooks/pre-commit'`
 
     if grep ' \+$' timestat README.markdown -q; then
         echo "pre-commit hook: error: trailing white space"
+        exit 1
+    fi
+
+    if grep '.\{81,\}' timestat README.markdown -q; then
+        echo "pre-commit hook: error: line longer than 80 character"
         exit 1
     fi
