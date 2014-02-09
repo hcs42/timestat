@@ -393,11 +393,11 @@ class Action(Happening):
 class Event(Happening):
 
     # Fields:
-    # - starttime
-    # - stoptime
-    # - activity
-    # - timelen (seconds)
-    # - ongoing
+    # - starttime (datetime)
+    # - stoptime (datetime)
+    # - activity (string)
+    # - timelen (integer: seconds)
+    # - ongoing (bool)
     # - is_interval_action (bool): the event was created from an interval action
 
     fields = ('starttime', 'stoptime', 'activity', 'timelen', 'ongoing',
@@ -584,7 +584,8 @@ def collect_happenings(options, actions, now=None):
     close_prev_event(now, ongoing=True)
 
     happenings = [ happening for happening in happenings
-                   if happening.between(options.since, options.until)]
+                   if happening.between(options.since, options.until) and
+                      eval(options.only_expr, {}, {'h': happening})]
 
     return happenings
 
@@ -963,6 +964,8 @@ Commands:
   print activities      Print all activities.
   print events          Print all events.
   show                  Show stats about the activities.
+  show-daily-sums       Show daily summary about time spent.
+  show-weekly-sums      Show weekly summary about time spent.
   show-status           Show the current activity.
   show-targets          Show targets.
   test                  Run unit tests''', version = '%prog 2.0')
@@ -995,7 +998,7 @@ Commands:
     parser.add_option('--fill', dest='fill',
                       action='store_true', default=False,
                       help='When printing a summary, print all dates (not '
-                           'only those with actual activity).')
+                           'only those with time spent).')
     parser.add_option('--show-time', dest='show_time',
                       action='store_true', default=False,
                       help='When printing a summary, print time too.')
@@ -1021,6 +1024,10 @@ Commands:
                       default=None,
                       help='Considers only the activities that match the '
                            'given pattern.')
+    parser.add_option('--only-expr', dest='only_expr',
+                      default='True',
+                      help='Considers only happenings for which ONLY_EXPR is '
+                           'true.')
     parser.add_option('-c', '--current', dest='current',
                       action='store_true', default=False,
                       help='Display the name of ongoing task, if any.')
@@ -1153,7 +1160,7 @@ def main_core(input_args):
         else:
             run_unittest(args[1])
         return
-    elif args[0] in ('tc', 'test_coverage'):
+    elif args[0] in ('tc', 'test-coverage'):
         check_args(args, 0)
         run_coverage()
         return
@@ -1317,6 +1324,7 @@ class TestTimestat(unittest.TestCase):
         self.options.ignore_activities_pattern = None
         self.options.only_activities = None
         self.options.only_activities_pattern = None
+        self.options.only_expr = 'True'
         self.options.current = False
         self.options.seconds = False
         self.options.actionfile = None
@@ -2165,18 +2173,19 @@ class TestTimestat(unittest.TestCase):
 
     def test_show(self):
 
-        self.create_action_file('''[1872-03-18 20:00:00] mywork
-                                   [1872-03-18 20:20:00] myotherwork
-                                   [1872-03-18 20:40:00] mywork
-                                   [1872-03-18 20:45:00] stop
-                                   [1872-03-18 20:55:00] myotherwork
-                                   [1872-03-18 21:05:00] stop
-                                   [1872-03-18 22:05:00] 10 myotherwork
-                                   [1872-03-25 22:05:00] 10 myotherwork
-                                   [1872-04-01 22:05:00] 1:00 myotherwork
-                                   [1872-04-08 22:05:00] 1:30 myotherwork
-                                   [1872-04-22 22:05:00] 2:00 myotherwork
-                                   ''')
+        self.create_action_file(
+            '''[1872-03-18 20:00:00] mywork
+               [1872-03-18 20:20:00] myotherwork
+               [1872-03-18 20:40:00] mywork
+               [1872-03-18 20:45:00] stop
+               [1872-03-18 20:55:00] myotherwork
+               [1872-03-18 21:05:00] stop
+               [1872-03-18 22:05:00] 10 myotherwork
+               [1872-03-25 22:05:00] 10 myotherwork
+               [1872-04-01 22:05:00] 1:00 myotherwork
+               [1872-04-08 22:05:00] 1:30 myotherwork
+               [1872-04-22 22:05:00] 2:00 myotherwork
+               [1872-04-22 22:05:00] increase-target mywork 10''')
 
         self.now = [1872, 5, 10, 0, 0, 0]
 
@@ -2196,6 +2205,12 @@ class TestTimestat(unittest.TestCase):
 
         main_core(['show', '--sum'])
         self.assertOutput('Sum: 05:45')
+
+        main_core(['show', '--only-expr',
+                   'h.is_event() and int(h.starttime.strftime("%H")) <= 20'])
+        self.assertOutput('myotherwork: 00:30',
+                          'mywork: 00:25',
+                          'Sum: 00:55')
 
         main_core(['show-daily-sum'])
         self.assertOutput('1872-03-18 x',
@@ -2681,7 +2696,7 @@ class TestTimestat(unittest.TestCase):
             self.output = ''
 
     def test_coverage(self):
-        main_core(['test_coverage'])
+        main_core(['test-coverage'])
         self.assertCalls([['coverage', 'run', sys.argv[0], 'test'],
                           ['coverage', 'report'],
                           ['coverage', 'html']])
@@ -2695,7 +2710,7 @@ class TestTimestat(unittest.TestCase):
                 raise Exit(1, 'msg')
             call = my_call
             with self.assertRaises(Exit) as cm:
-                main_core(['test_coverage'])
+                main_core(['test-coverage'])
             self.assertExit(cm, 1, '''msg
 Probably this means that "coverage" is not installed. You can install coverage
 with "pip install coverage" (you may also need "sudo").''')
