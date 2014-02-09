@@ -975,9 +975,9 @@ Commands:
                       help='Verbose printout')
 
     # "show" options
-    parser.add_option('--since', dest='since',
+    parser.add_option('--from', dest='FROM',
                       help='Work with actions since this date.')
-    parser.add_option('--until', dest='until', default='today',
+    parser.add_option('--to', dest='TO', default='today',
                       help='Work with actions until this date.')
     parser.add_option('-d', '--day', dest='day',
                       help='Work with actions on this date.')
@@ -1037,6 +1037,11 @@ Commands:
     if len(args) > 0 and args[0] == 'test':
         return options, args
 
+    # "from" is a keyword in Python, so let's use the words "since" and "until"
+    # instead of "from" and "to".
+    options.since = options.FROM
+    options.until = options.TO
+
     # Prepare: since and until
     if options.since is not None:
         options.since = str_to_date(options.since)
@@ -1044,7 +1049,7 @@ Commands:
     options.until = str_to_date(options.until)
 
     if options.since is not None and options.since > options.until:
-        raise Exit(1, '"Since" date (%s) is after "until" date (%s).',
+        raise Exit(1, '"From" date (%s) is after "to" date (%s).',
                    (date_to_str(options.since),
                     date_to_str(options.until)))
 
@@ -2207,8 +2212,8 @@ class TestTimestat(unittest.TestCase):
                           '1872-04-22 (02:00) xx')
 
         main_core(['show-daily-sum', '--fill', '--show-time',
-                   '--since', '1872-03-17',
-                   '--until', '1872-03-26'])
+                   '--from', '1872-03-17',
+                   '--to', '1872-03-26'])
         self.assertOutput('1872-03-17 (00:00)',
                           '1872-03-18 (01:05) x',
                           '1872-03-19 (00:00)',
@@ -2221,7 +2226,7 @@ class TestTimestat(unittest.TestCase):
                           '1872-03-26 (00:00)')
 
         main_core(['show-daily-sum', '--fill', '--show-time',
-                   '--until', '1872-03-26'])
+                   '--to', '1872-03-26'])
         self.assertOutput('1872-03-18 (01:05) x',
                           '1872-03-19 (00:00)',
                           '1872-03-20 (00:00)',
@@ -2256,12 +2261,12 @@ class TestTimestat(unittest.TestCase):
                           '1872-18',
                           '1872-19')
 
-        main_core(['show-weekly-sum', '--until', 'w14-6'])
+        main_core(['show-weekly-sum', '--to', 'w14-6'])
         self.assertOutput('1872-12 x',
                           '1872-13',
                           '1872-14 x')
 
-        main_core(['show-weekly-sum', '--fill', '--since', '1872-w14-1'])
+        main_core(['show-weekly-sum', '--fill', '--from', '1872-w14-1'])
         self.assertOutput('1872-14 x',
                           '1872-15 x',
                           '1872-16',
@@ -2269,7 +2274,7 @@ class TestTimestat(unittest.TestCase):
                           '1872-18',
                           '1872-19')
 
-        main_core(['show-weekly-sum', '--fill', '--until', '1870-w14-1'])
+        main_core(['show-weekly-sum', '--fill', '--to', '1870-w14-1'])
         self.assertOutput('')
 
         main_core(['show', '-w'])
@@ -2286,17 +2291,17 @@ class TestTimestat(unittest.TestCase):
                                    [1999-01-03 01:00:00] 12 work1
                                    [1999-01-04 01:00:00] 15 work3''')
 
-        main_core(['show', '--since', '1999-01-02', '--nosum'])
+        main_core(['show', '--from', '1999-01-02', '--nosum'])
         self.assertOutput('work1: 00:12',
                           'work2: 00:10',
                           'work3: 00:15')
 
-        main_core(['show', '--until', '1999-01-02', '--nosum'])
+        main_core(['show', '--to', '1999-01-02', '--nosum'])
         self.assertOutput('work1: 00:10',
                           'work2: 00:10')
 
-        main_core(['show', '--since', '1999-01-02',
-                           '--until', '1999-01-03', '--nosum'])
+        main_core(['show', '--from', '1999-01-02',
+                           '--to', '1999-01-03', '--nosum'])
         self.assertOutput('work1: 00:12',
                           'work2: 00:10')
 
@@ -2311,9 +2316,9 @@ class TestTimestat(unittest.TestCase):
         self.assertOutput('work1: 00:10')
 
         with self.assertRaises(Exit) as cm:
-            main_core(['show', '--since', '1999-01-02',
-                               '--until', '1999-01-01'])
-        self.assertExit(cm, 1, '"Since" date (1999-01-02) is after "until" '
+            main_core(['show', '--from', '1999-01-02',
+                               '--to', '1999-01-01'])
+        self.assertExit(cm, 1, '"From" date (1999-01-02) is after "to" '
                                'date (1999-01-01).')
 
 
