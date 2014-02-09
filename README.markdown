@@ -315,7 +315,7 @@ Options described in "Options for specifying dates":
 
 Other options:
 
-- `-w, --weekly-sum`: Print a weekly summary (same as the `show-weekly-sum`
+- `-w, --weekly-sum`: Print a weekly summary (same as the `show-sum weekly`
   command).
 - `-s, --sum`: Print only the sum of the activity time.
 - `-c, --current`: Display the name of ongoing task, if any, and the
@@ -335,13 +335,16 @@ Examples:
     $ timestat -c
     myotherwork:20
 
-### show-daily-sum: show a daily summary
+### show-sum: show a daily/weekly/monthly summary
 
 Usage:
 
-    timestat [options] show-daily-sum
+    timestat [options] show-sum daily
+    timestat [options] show-sum weekly
+    timestat [options] show-sum monthly
 
-Show a summary about how much time was spent on activities per day.
+Show a summary about how much time was spent on activities per day/per week/per
+month.
 
 Options described in "Common options":
 
@@ -368,47 +371,14 @@ Other options:
 
 Example (one `x` means one hour spent):
 
-    $ timestat show-daily-sum -O ^work
+    $ timestat show-sum daily -O ^work
     2014-01-20 (06:20) xxxxxx
     2014-01-21 (08:20) xxxxxxxx
     2014-01-22 (09:34) xxxxxxxxx
     2014-01-23 (07:19) xxxxxxx
     2014-01-24 (08:34) xxxxxxxx
 
-### show-weekly-sum: show a weekly summary
-
-Usage:
-
-    timestat [options] show-weekly-sum
-
-Show a summary about how much time was spent on activities per week.
-
-Options described in "Common options":
-
-- `-f ACTIONFILES, --actionfiles ACTIONFILES`
-- `-i, --ignore-activities`
-- `-o, --only-activities`
-- `-I, --ignore-pattern`
-- `-O, --only-pattern`
-- `--only-expr ONLY_EXPR`
-
-Options described in "Options for specifying dates":
-
-- `--from DATE`
-- `--to DATE`
-- `-d DATE, --day DATE`
-- `-t, --today`
-- `-y, --yesterday`
-
-Other options:
-
-- `--fill`: Print all dates (not only those with time spent).
-- `--show-time`: Print time too.
-- `--avg`: Print the average time spent.
-
-Example:
-
-    $ timestat show-weekly-sum --show-time -O ^hobby
+    $ timestat show-sum weekly --show-time -O ^hobby
     2014-01 (21:20) xxxxxxxxxxxxxxxxxxxxx
     2014-02 (07:15) xxxxxxx
     2014-03 (13:06) xxxxxxxxxxxxx

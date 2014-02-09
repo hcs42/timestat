@@ -704,6 +704,19 @@ def show_weekly_sum(options):
     return show_sum(options, datetime_to_key, key_to_date, key_to_text, 7)
 
 
+def show_monthly_sum(options):
+    # key = (year, month)
+    def datetime_to_key(dt):
+        return (dt.year, dt.month)
+    def key_to_date(key):
+        return datetime.date(key[0], key[1], 1)
+    def key_to_text(key):
+        return '%04d-%02d' % key
+    # Step = 28 is fine. If a month is longer, maybe we will examine one month
+    # twice.
+    return show_sum(options, datetime_to_key, key_to_date, key_to_text, 28)
+
+
 def show_status(options):
     actions, happenings, events, activities = collect_everything(options)
 
@@ -968,8 +981,7 @@ Commands:
   print activities      Print all activities.
   print events          Print all events.
   show                  Show stats about the activities.
-  show-daily-sums       Show daily summary about time spent.
-  show-weekly-sums      Show weekly summary about time spent.
+  show-sums             Show daily/weekly/monthly summary about time spent.
   show-status           Show the current activity.
   show-targets          Show targets.
   test                  Run unit tests''', version = '%prog 3.0')
@@ -1183,12 +1195,14 @@ def main_core(input_args):
     elif args[0] == 'show':
         check_args(args, 0)
         show(options)
-    elif args[0] == 'show-daily-sum':
-        check_args(args, 0)
-        show_daily_sum(options)
-    elif args[0] == 'show-weekly-sum':
-        check_args(args, 0)
-        show_weekly_sum(options)
+    elif args[0] == 'show-sum':
+        check_args(args, 1)
+        if args[1] == 'daily':
+            show_daily_sum(options)
+        elif args[1] == 'weekly':
+            show_weekly_sum(options)
+        elif args[1] == 'monthly':
+            show_monthly_sum(options)
     elif args[0] in ('ss', 'show-status'):
         check_args(args, 0)
         show_status(options)
@@ -2221,16 +2235,16 @@ class TestTimestat(unittest.TestCase):
                           'mywork: 00:25',
                           'Sum: 00:55')
 
-        # show-daily-sum
+        # show-sum daily
 
-        main_core(['show-daily-sum'])
+        main_core(['show-sum', 'daily'])
         self.assertOutput('1872-03-18 x',
                           '1872-03-25',
                           '1872-04-01 x',
                           '1872-04-08 x',
                           '1872-04-22 xx')
 
-        main_core(['show-daily-sum', '--show-time'])
+        main_core(['show-sum', 'daily', '--show-time'])
         self.assertOutput('1872-03-18 (01:05) x',
                           '1872-03-25 (00:10)',
                           '1872-04-01 (01:00) x',
@@ -2239,7 +2253,7 @@ class TestTimestat(unittest.TestCase):
 
         # --fill
 
-        main_core(['show-daily-sum', '--fill', '--show-time',
+        main_core(['show-sum', 'daily', '--fill', '--show-time',
                    '--from', '1872-03-17',
                    '--to', '1872-03-26'])
         self.assertOutput('1872-03-17 (00:00)',
@@ -2253,7 +2267,7 @@ class TestTimestat(unittest.TestCase):
                           '1872-03-25 (00:10)',
                           '1872-03-26 (00:00)')
 
-        main_core(['show-daily-sum', '--fill', '--show-time',
+        main_core(['show-sum', 'daily', '--fill', '--show-time',
                    '--to', '1872-03-26'])
         self.assertOutput('1872-03-18 (01:05) x',
                           '1872-03-19 (00:00)',
@@ -2267,7 +2281,7 @@ class TestTimestat(unittest.TestCase):
 
         # --avg
 
-        main_core(['show-daily-sum', '--avg'])
+        main_core(['show-sum', 'daily', '--avg'])
         self.assertOutput('1872-03-18 x',
                           '1872-03-25',
                           '1872-04-01 x',
@@ -2275,7 +2289,7 @@ class TestTimestat(unittest.TestCase):
                           '1872-04-22 xx',
                           'Average: 01:09')
 
-        main_core(['show-daily-sum', '--fill',
+        main_core(['show-sum', 'daily', '--fill',
                    '--from', '1872-03-17',
                    '--to', '1872-03-26',
                    '--avg', '--seconds'])
@@ -2291,23 +2305,23 @@ class TestTimestat(unittest.TestCase):
                           '1872-03-26',
                           'Average: 00:07:30')
 
-        # show-weekly-sum
+        # show-sum weekly
 
-        main_core(['show-weekly-sum'])
+        main_core(['show-sum', 'weekly'])
         self.assertOutput('1872-12 x',
                           '1872-13',
                           '1872-14 x',
                           '1872-15 x',
                           '1872-17 xx')
 
-        main_core(['show-weekly-sum', '--show-time'])
+        main_core(['show-sum', 'weekly', '--show-time'])
         self.assertOutput('1872-12 (01:05) x',
                           '1872-13 (00:10)',
                           '1872-14 (01:00) x',
                           '1872-15 (01:30) x',
                           '1872-17 (02:00) xx')
 
-        main_core(['show-weekly-sum', '--fill'])
+        main_core(['show-sum', 'weekly', '--fill'])
         self.assertOutput('1872-12 x',
                           '1872-13',
                           '1872-14 x',
@@ -2317,12 +2331,12 @@ class TestTimestat(unittest.TestCase):
                           '1872-18',
                           '1872-19')
 
-        main_core(['show-weekly-sum', '--to', 'w14-6'])
+        main_core(['show-sum', 'weekly', '--to', 'w14-6'])
         self.assertOutput('1872-12 x',
                           '1872-13',
                           '1872-14 x')
 
-        main_core(['show-weekly-sum', '--fill', '--from', '1872-w14-1'])
+        main_core(['show-sum', 'weekly', '--fill', '--from', '1872-w14-1'])
         self.assertOutput('1872-14 x',
                           '1872-15 x',
                           '1872-16',
@@ -2330,7 +2344,7 @@ class TestTimestat(unittest.TestCase):
                           '1872-18',
                           '1872-19')
 
-        main_core(['show-weekly-sum', '--fill', '--to', '1870-w14-1'])
+        main_core(['show-sum', 'weekly', '--fill', '--to', '1870-w14-1'])
         self.assertOutput('')
 
         main_core(['show', '-w'])
@@ -2339,6 +2353,17 @@ class TestTimestat(unittest.TestCase):
                           '1872-14 x',
                           '1872-15 x',
                           '1872-17 xx')
+
+        # show-monthly-sum
+
+        main_core(['show-sum', 'monthly'])
+        self.assertOutput('1872-03 x',
+                          '1872-04 xxxx')
+
+        main_core(['show-sum', 'monthly', '--fill'])
+        self.assertOutput('1872-03 x',
+                          '1872-04 xxxx')
+
 
     def test_since_until(self):
 
