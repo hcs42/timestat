@@ -604,6 +604,15 @@ def collect_activities(options, events):
     return activities
 
 
+# Result: {activity (str): seconds (int)}
+def collect_activities_hotness(options, events):
+    activities = []
+    for event in reversed(events):
+        if event.activity not in activities:
+            activities.append(event.activity)
+    return activities
+
+
 def get_categories(activity):
     words = activity.split('/')
     return [ '/'.join(words[:i]) for i in range(1, len(words) + 1) ]
@@ -881,14 +890,15 @@ def expand_activity(activity, activities):
 
     if activity[0] == '%':
         activity = activity[1:]
-        act_hits = sorted(set([act for act in activities
-                               if re.search(activity, act)]))
+        act_hits = [act for act in activities
+                    if re.search(activity, act)][:20]
         if len(act_hits) == 0:
             raise Exit(1, 'No activity matches "%s"', activity)
         elif len(act_hits) == 1:
             activity = act_hits[0]
         else:
             wl('Select the desired match (empty line = cancel):')
+
             for i, act in enumerate(act_hits):
                 wl('%s: %s', i + 1, act)
             while True:
@@ -915,7 +925,8 @@ def quickadd(options, activity, duration=None):
 
     actions, happenings, events, activities = collect_everything(options)
     if activity is not None:
-        activity = expand_activity(activity, activities)
+        activities_hot = collect_activities_hotness(options, events)
+        activity = expand_activity(activity, activities_hot)
 
     # If we have a duration, just pass it to "add"
     if duration is not None:
@@ -1996,6 +2007,25 @@ class TestTimestat(unittest.TestCase):
         expected_events = expected_happenings
         self.assertEqual(actual_events, expected_events)
 
+    def test_collect_activities_hotness(self):
+
+        filename = self.create_action_file('''
+                       [2000-01-01 00:00:00] a
+                       [2000-01-02 00:00:00] c
+                       [2000-01-03 00:00:00] b
+                       [2000-01-04 00:00:00] a
+                       [2000-01-01 01:00:00] e
+                       ''')
+
+        # Actions
+        actions = collect_actions(self.options)
+        happenings = collect_happenings(self.options, actions)
+        events = collect_events(self.options, happenings)
+
+        actual_act_hot = collect_activities_hotness(self.options, happenings)
+        expected_act_hot = ['a', 'b', 'c', 'e']
+        self.assertEqual(actual_act_hot, expected_act_hot)
+
     def test_ignore_and_only(self):
 
         self.create_action_file('''
@@ -2608,9 +2638,9 @@ class TestTimestat(unittest.TestCase):
 
     def test_expand_activity(self):
 
-        activities = {'myotherwork': 1,
-                      'something_else': 1,
-                      'work': 1}
+        activities = ['myotherwork',
+                      'something_else',
+                      'work']
 
         self.assertEqual(expand_activity('%other', activities),
                          'myotherwork')
