@@ -982,7 +982,7 @@ Commands:
   print activities      Print all activities.
   print events          Print all events.
   show                  Show stats about the activities.
-  show-sums             Show daily/weekly/monthly summary about time spent.
+  show-sum              Show daily/weekly/monthly summary about time spent.
   show-status           Show the current activity.
   show-targets          Show targets.
   test                  Run unit tests''', version = '%prog 3.0')
