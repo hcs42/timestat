@@ -368,6 +368,7 @@ Other options:
 - `--fill`: Print all dates (not only those with time spent).
 - `--show-time`: Print time too.
 - `--avg`: Print the average time spent.
+- `--block-size SECONDS`: Defines how many seconds should one "x" represent.
 
 Example (one `x` means one hour spent):
 

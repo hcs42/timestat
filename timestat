@@ -677,7 +677,7 @@ def show_sum(options, datetime_to_key, key_to_date, key_to_text, step_days):
                 day += step
 
     # Print the sums
-    block = options.block_seconds
+    block = options.block_size
     for k in sorted(d.keys()):
         w(key_to_text(k))               # date (range)
         if options.show_time:
@@ -1033,10 +1033,10 @@ Commands:
     parser.add_option('--avg', dest='avg',
                       action='store_true', default=False,
                       help='When printing a summary, print the average.')
-    parser.add_option('--block-seconds', dest='block_seconds', type='int',
+    parser.add_option('--block-size', dest='block_size', type='int',
                       default=3600,
                       help='When printing a summary, one "x" will represent '
-                           'BLOCK_SECONDS seconds.')
+                           'block_size seconds.')
     parser.add_option('-s', '--sum', dest='sum',
                       action='store_true', default=False,
                       help='Print only the sum of the activity time.')
@@ -2340,8 +2340,8 @@ class TestTimestat(unittest.TestCase):
                           '1872-03-26',
                           'Average: 00:07:30')
 
-        # --block-seconds
-        main_core(['show-sum', 'daily', '--block-seconds', '600'])
+        # --block-size
+        main_core(['show-sum', 'daily', '--block-size', '600'])
         self.assertOutput('1872-03-18 xxxxxx',
                           '1872-03-25 x',
                           '1872-04-01 xxxxxx',
