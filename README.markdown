@@ -145,6 +145,7 @@ Timestat is a command line tool, and its general syntax is the following:
   --to wISO_WEEK_NUMBER-7`.
 - `-t, --today` is equivalent to `--day today`.
 - `-y, --yesterday` is equivalent to `--day yesterday`.
+- `--this-week`: Work with days in this week.
 
 Date formats:
 

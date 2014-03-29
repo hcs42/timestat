@@ -1,3 +1,5 @@
+.PHONY: test
+
 test:
 	./timestat test
 

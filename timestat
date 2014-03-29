@@ -1013,7 +1013,10 @@ Commands:
     parser.add_option('-d', '--day', dest='day',
                       help='Work with actions on this date.')
     parser.add_option('--week', dest='week',
-                      help='Work with actions on this week.')
+                      help='Work with actions in the given week.')
+    parser.add_option('--this-week', dest='this_week',
+                      action='store_true', default=False,
+                      help='Work with actions in this week.')
     parser.add_option('-t', '--today', dest='today',
                       action='store_true', default=False,
                       help='Same as --day today.')
@@ -1104,6 +1107,11 @@ Commands:
     if options.week is not None:
         options.since = str_to_date('w' + options.week + '-1')
         options.until = str_to_date('w' + options.week + '-7')
+
+    if options.this_week:
+        this_week_number = datetime.date.today().isocalendar()[1]
+        options.since = str_to_date('w' + ("%02d" % this_week_number) + '-1')
+        options.until = str_to_date('w' + ("%02d" % this_week_number) + '-7')
 
     if options.day is not None:
         options.since = str_to_date(options.day)
@@ -1354,6 +1362,7 @@ class TestTimestat(unittest.TestCase):
         self.options.until = None
         self.options.today = False
         self.options.yesterday = False
+        self.options.this_week = False
         self.options.weekly_sum = False
         self.options.sum = False
         self.options.nosum = False
@@ -2452,10 +2461,19 @@ class TestTimestat(unittest.TestCase):
                                    [2014-02-03 01:00:00] 1 work1
                                    [2014-02-04 01:00:00] 1 work1
                                    [2014-02-09 01:00:00] 1 work1
-                                   [2014-02-10 01:00:00] 10 work1''')
+                                   [2014-02-10 01:00:00] 10 work1
+                                   [2014-03-29 01:00:00] 1 work2''')
 
         main_core(['show', '--week', '2014-06', '--nosum'])
         self.assertOutput('work1: 00:03')
+
+        self.now = [2014, 2, 3, 12, 0, 0]
+        main_core(['show', '--this-week', '--nosum'])
+        self.assertOutput('work1: 00:03')
+
+        self.now = [2014, 3, 29, 12, 0, 0]
+        main_core(['show', '--this-week', '--nosum'])
+        self.assertOutput('work2: 00:01')
 
     ##### Functions writing the action files #####
 
