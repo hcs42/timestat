@@ -745,7 +745,7 @@ def show_status(options):
 def show_targets(options):
     actions, happenings, events, activities = collect_everything(options)
     targets = collect_targets(options, happenings, activities)
-    for target_name, target_result in targets.items():
+    for target_name, target_result in sorted(targets.items()):
         target_timelen = target_result['target_timelen']
         actual_timelen = target_result['actual_timelen']
         def show(timelen):
@@ -760,7 +760,7 @@ def print_object(name, options):
     actions, happenings, events, activities = collect_everything(options)
 
     if name == 'activities':
-        for item in activities.items():
+        for item in sorted(activities.items()):
             print(item)
     else:
         l = (actions if name == 'actions' else
@@ -2173,8 +2173,8 @@ class TestTimestat(unittest.TestCase):
             "timelen=31462800, ongoing=True, is_interval_action=False>")
 
         main_core(['print', 'activities'])
-        self.assertOutput("('mywork', 1200)\n"
-                          "('myotherwork', 31462800)")
+        self.assertOutput("('myotherwork', 31462800)\n"
+                          "('mywork', 1200)")
 
 
     def test_show_c(self):
