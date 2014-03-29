@@ -130,6 +130,9 @@ Timestat is a command line tool, and its general syntax is the following:
       timestat print events  -O work --only-expr \
         'h.is_event() and int(h.starttime.strftime("%w")) in (6, 7)'
 
+- `--multiply-timelen NUMBER`: Multiple the "time length" values with this
+  number.
+
 ### Options for specifying dates
 
 - `--from DATE`: Ignore happenings before this date. (Format: see
@@ -305,6 +308,7 @@ Options described in "Common options":
 - `-I, --ignore-pattern`
 - `-O, --only-pattern`
 - `--only-expr ONLY_EXPR`
+- `--multiply-timelen NUMBER`
 
 Options described in "Options for specifying dates":
 
@@ -355,6 +359,7 @@ Options described in "Common options":
 - `-I, --ignore-pattern`
 - `-O, --only-pattern`
 - `--only-expr ONLY_EXPR`
+- `--multiply-timelen NUMBER`
 
 Options described in "Options for specifying dates":
 
@@ -406,6 +411,7 @@ Options described in "Common options":
 - `-I, --ignore-pattern`
 - `-O, --only-pattern`
 - `--only-expr ONLY_EXPR`
+- `--multiply-timelen NUMBER`
 
 Options described in "Options for specifying dates":
 
@@ -458,6 +464,7 @@ Options described in "Common options":
 - `-I, --ignore-pattern`
 - `-O, --only-pattern`
 - `--only-expr ONLY_EXPR`
+- `--multiply-timelen NUMBER`
 
 Options described in "Options for specifying dates":
 

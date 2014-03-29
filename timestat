@@ -360,7 +360,7 @@ class Action(Happening):
         # be properly implemented and tested.
         assert False
 
-    def calc(self):
+    def calc(self, multiplier=1):
         """This function fills in self.type, self.accidentaly and self.timelen,
         based on self.text."""
         r = ReMatch()
@@ -374,10 +374,10 @@ class Action(Happening):
         elif r.match('^increase-target ([^ ]+) ((?:\d|:)+)$', self.text):
             self.type = 'target'
             self.activity = r.group(1)
-            self.timelen = hhmm_to_seconds(r.group(2))
+            self.timelen = hhmm_to_seconds(r.group(2)) * multiplier
         elif r.match('^((?:\d|:)+) ([^ ]+)$', self.text):
             self.type = 'interval'
-            self.timelen = hhmm_to_seconds(r.group(1))
+            self.timelen = hhmm_to_seconds(r.group(1)) * multiplier
             self.activity = r.group(2)
         else:
             wl('WARNING: Incorrect action in %s: %s',
@@ -458,17 +458,17 @@ def split_comment(text):
     comment = r.group(2) if r.group(2) is not None else ''
     return text, comment
 
-def process_actionfile_line(dt, text, actions, source):
+def process_actionfile_line(dt, text, actions, source, multiplier=1):
     text, comment = split_comment(text)
     action = Action(datetime = dt,
                     text = text,
                     source = source)
-    add = action.calc()
+    add = action.calc(multiplier)
     if add:
         actions.append(action)
 
 
-def parse_actionfile(filename):
+def parse_actionfile(filename, multiplier=1):
     actions = []
     with open(filename) as f:
         for lnum, line in enumerate(f):
@@ -494,7 +494,7 @@ def parse_actionfile(filename):
                              int(r.group('minute')),
                              int(r.group('second')))
                     process_actionfile_line(dt, r.group('text'), actions,
-                                            source)
+                                            source, multiplier)
                 except Exception as e:
                     wl('WARNING: Incorrect line in file %s line %s: %s',
                        filename, lnum, line)
@@ -503,8 +503,9 @@ def parse_actionfile(filename):
 
 def collect_actions(options):
     actions = []
+    multiplier = options.multiplier
     for actionfile in options.actionfiles:
-        actions += parse_actionfile(actionfile)
+        actions += parse_actionfile(actionfile, multiplier)
     actions.sort()
     return actions
 
@@ -533,6 +534,7 @@ def collect_happenings(options, actions, now=None):
         now = get_now()
 
     happenings = []
+    multiplier = options.multiplier
 
     def add_event(activity, starttime, timelen, is_interval_action):
         """Adds an activity to the dict."""
@@ -566,7 +568,8 @@ def collect_happenings(options, actions, now=None):
         if last_event.ongoing:
             last_event.stoptime = stoptime
             last_event.timelen = \
-                timedelta_to_seconds(stoptime - last_event.starttime)
+                timedelta_to_seconds(stoptime - last_event.starttime) * \
+                multiplier
             if not ongoing:
                 last_event.ongoing = False
 
@@ -1072,6 +1075,9 @@ Commands:
     parser.add_option('--seconds', dest='seconds',
                       action='store_true', default=False,
                       help='Show seconds')
+    parser.add_option('--multiply-timelen', dest='multiplier',
+                      action='store', type='float', default=1,
+                      help='Multiply all time length values with this number')
 
     # "add" and "edit" options
     parser.add_option('-a', '--actionfile', dest='actionfile',
@@ -1374,6 +1380,7 @@ class TestTimestat(unittest.TestCase):
         self.options.current = False
         self.options.seconds = False
         self.options.actionfile = None
+        self.options.multiplier = 1
 
         # Set unittest settings
         self.maxDiff = 2000
@@ -2177,6 +2184,29 @@ class TestTimestat(unittest.TestCase):
                           'Target time: 00:01',
                           'Actual time: 00:00',
                           'Difference: -00:01')
+
+    def test_multiplier(self):
+        self.create_action_file(
+            '''[1999-01-01 00:00:00] mywork
+               [1999-01-01 01:00:00] stop
+               [1999-01-02 02:00:00] 20 mywork
+               [1999-01-03 00:00:00] myotherwork
+               [1999-01-03 00:00:00] stop
+               [1999-01-04 00:00:00] 0:10 myotherwork
+               [1999-01-05 00:00:00] increase-target mywork 1:00
+               [1999-01-05 00:00:00] increase-target mywork 2:00''')
+
+        self.now = [1999, 2, 1, 0, 15, 0]
+        main_core(['show', '--multiply-timelen', '1.5'])
+        self.assertOutput('myotherwork: 00:15',
+                          'mywork: 02:00',
+                          'Sum: 02:15')
+
+        main_core(['show-targets', '--multiply-timelen', '1.5'])
+        self.assertOutput('Target name: mywork',
+                          'Target time: 04:30',
+                          'Actual time: 02:00',
+                          'Difference: -02:30')
 
     def test_print_object(self):
 
