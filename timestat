@@ -470,7 +470,13 @@ def process_actionfile_line(dt, text, actions, source, multiplier=1):
 
 def parse_actionfile(filename, multiplier=1):
     actions = []
-    with open(filename) as f:
+
+    try:
+        f = open(filename)
+    except Exception as e:
+        raise Exit(1, 'WARNING: Could not open action file: %s', str(e))
+
+    try:
         for lnum, line in enumerate(f):
             source = (filename, lnum)
             line = line.strip()
@@ -498,7 +504,9 @@ def parse_actionfile(filename, multiplier=1):
                 except Exception as e:
                     wl('WARNING: Incorrect line in file %s line %s: %s',
                        filename, lnum, line)
-    return actions
+        return actions
+    finally:
+        f.close()
 
 
 def collect_actions(options):
@@ -1913,6 +1921,14 @@ class TestTimestat(unittest.TestCase):
         self.assertEqual(get_categories('a/b/c'), ['a', 'a/b', 'a/b/c'])
 
     ##### Functions reading the action files #####
+
+    def test_actionfile_does_not_exist(self):
+
+        with self.assertRaises(Exit) as cm:
+            main_core(['show', '-f', '/hopefully_there_is_no_such_file'])
+        self.assertExit(cm, 1, "WARNING: Could not open action file: [Errno 2] "
+                               "No such file or directory: "
+                               "'/hopefully_there_is_no_such_file'")
 
     def test_actionfile(self):
 
