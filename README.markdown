@@ -113,6 +113,10 @@ Timestat is a command line tool, and its general syntax is the following:
 
       timestat show -O "^work" -i work/meeting
 
+- `--ignore-case`: Be case insensitive when evaluating whether an activity
+  matches a regular expression pattern. Note that the action file is always
+  considered to be case sensitive, so if it contains a "Work" and a "work"
+  entry, those will be different activities even if `--ignore-case` is used.
 - `--only-expr ONLY_EXPR`: `ONLY_EXPR` should be a Python 3 expression where the
   `h` variable contains the `Happening` object. The expression should return a
   boolean value. The effect of this option is those happenings will be ignored
@@ -230,6 +234,7 @@ Options described in "Common options":
 - `-o, --only-activities`
 - `-I, --ignore-pattern`
 - `-O, --only-pattern`
+- `--ignore-case`: applies to ignore pattern, only pattern and activity pattern.
 - `--only-expr ONLY_EXPR`
 
 Other options:
@@ -307,6 +312,7 @@ Options described in "Common options":
 - `-o, --only-activities`
 - `-I, --ignore-pattern`
 - `-O, --only-pattern`
+- `--ignore-case`
 - `--only-expr ONLY_EXPR`
 - `--multiply-timelen NUMBER`
 
@@ -358,6 +364,7 @@ Options described in "Common options":
 - `-o, --only-activities`
 - `-I, --ignore-pattern`
 - `-O, --only-pattern`
+- `--ignore-case`
 - `--only-expr ONLY_EXPR`
 - `--multiply-timelen NUMBER`
 
@@ -410,6 +417,7 @@ Options described in "Common options":
 - `-o, --only-activities`
 - `-I, --ignore-pattern`
 - `-O, --only-pattern`
+- `--ignore-case`
 - `--only-expr ONLY_EXPR`
 - `--multiply-timelen NUMBER`
 
@@ -463,6 +471,7 @@ Options described in "Common options":
 - `-o, --only-activities`
 - `-I, --ignore-pattern`
 - `-O, --only-pattern`
+- `--ignore-case`
 - `--only-expr ONLY_EXPR`
 - `--multiply-timelen NUMBER`
 

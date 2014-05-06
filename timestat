@@ -522,16 +522,17 @@ def is_activity_needed(act, opt):
     ignore_act_pattern = opt.ignore_activities_pattern
     only_act = opt.only_activities
     only_act_pattern = opt.only_activities_pattern
+    flags = opt.re_flags
 
     if ignore_act and (act in ignore_act):
         return False
-    elif ignore_act_pattern and re.search(ignore_act_pattern, act):
+    elif ignore_act_pattern and re.search(ignore_act_pattern, act, flags):
         return False
     elif not (only_act or only_act_pattern):
         return True
     elif only_act and (act in only_act):
         return True
-    elif only_act_pattern and re.search(only_act_pattern, act):
+    elif only_act_pattern and re.search(only_act_pattern, act, flags):
         return True
     else: # only_act or only_act_pattern is set, but the act. does not match
         return False
@@ -894,7 +895,7 @@ def list_actionfiles(options):
         wl(actionfile)
 
 
-def expand_activity(activity, activities):
+def expand_activity(activity, activities, options):
 
     if len(activity) == 0:
         raise Exit(1, 'Empty activity specified.')
@@ -902,7 +903,7 @@ def expand_activity(activity, activities):
     if activity[0] == '%':
         activity = activity[1:]
         act_hits = [act for act in activities
-                    if re.search(activity, act)][:20]
+                    if re.search(activity, act, options.re_flags)][:20]
         if len(act_hits) == 0:
             raise Exit(1, 'No activity matches "%s"', activity)
         elif len(act_hits) == 1:
@@ -937,7 +938,7 @@ def quickadd(options, activity, duration=None):
     actions, happenings, events, activities = collect_everything(options)
     if activity is not None:
         activities_hot = collect_activities_hotness(options, events)
-        activity = expand_activity(activity, activities_hot)
+        activity = expand_activity(activity, activities_hot, options)
 
     # If we have a duration, just pass it to "add"
     if duration is not None:
@@ -1073,6 +1074,9 @@ Commands:
                       default=None,
                       help='Considers only the activities that match the '
                            'given pattern.')
+    parser.add_option('--ignore-case', dest='ignore_case', action='store_true',
+                      default=False,
+                      help='Disables case sensitivity is regexps.')
     parser.add_option('--only-expr', dest='only_expr',
                       default='True',
                       help='Considers only happenings for which ONLY_EXPR is '
@@ -1139,6 +1143,12 @@ Commands:
     if options.only_activities is not None:
         options.only_activities = \
             set(options.only_activities.split(':')) - set([''])
+
+    # Prepare: re_flags
+    re_flags = 0
+    if options.ignore_case:
+        re_flags |= re.IGNORECASE
+    options.re_flags = re_flags
 
     # Prepare: actionfiles
     if options.actionfiles is not None:
@@ -1389,6 +1399,7 @@ class TestTimestat(unittest.TestCase):
         self.options.seconds = False
         self.options.actionfile = None
         self.options.multiplier = 1
+        self.options.re_flags = 0
 
         # Set unittest settings
         self.maxDiff = 2000
@@ -2058,6 +2069,25 @@ class TestTimestat(unittest.TestCase):
         expected_act_hot = ['a', 'b', 'c', 'e']
         self.assertEqual(actual_act_hot, expected_act_hot)
 
+    def test_ignore_and_only_ignore_case(self):
+
+        # Action files are always case sensitive; only search is not.
+        self.create_action_file('''
+            [2000-01-01 00:00:00] work
+            [2000-01-01 00:10:00] Work
+            [2000-01-01 00:20:00] otherwork
+            [2000-01-01 00:50:00] other
+            [2000-01-01 00:51:00] stop''')
+
+        main_core(['show', '-O', 'work', '--nosum'])
+        self.assertOutput('otherwork: 00:30',
+                          'work: 00:10')
+
+        main_core(['show', '-O', 'work', '--nosum', '--ignore-case'])
+        self.assertOutput('Work: 00:10',
+                          'otherwork: 00:30',
+                          'work: 00:10')
+
     def test_ignore_and_only(self):
 
         self.create_action_file('''
@@ -2702,15 +2732,17 @@ class TestTimestat(unittest.TestCase):
 
     def test_expand_activity(self):
 
+        options = self.options
         activities = ['myotherwork',
                       'something_else',
-                      'work']
+                      'work',
+                      'MyWork']
 
-        self.assertEqual(expand_activity('%other', activities),
+        self.assertEqual(expand_activity('%other', activities, options),
                          'myotherwork')
 
         with self.assertRaises(Exit) as cm:
-            expand_activity('%nomatch', activities)
+            expand_activity('%nomatch', activities, options)
         self.assertExit(cm, 1, 'No activity matches "nomatch"')
 
         # stdin mock
@@ -2728,7 +2760,7 @@ class TestTimestat(unittest.TestCase):
             # Cancelling
             with self.assertRaises(Exit) as cm:
                 sys.stdin = NewStdin([''])
-                self.assertEqual(expand_activity('%work', activities),
+                self.assertEqual(expand_activity('%work', activities, options),
                                  'myotherwork')
             self.assertOutput(
                 'Select the desired match (empty line = cancel):',
@@ -2739,7 +2771,7 @@ class TestTimestat(unittest.TestCase):
 
             # Select one of the hits
             sys.stdin = NewStdin(['1'])
-            self.assertEqual(expand_activity('%work', activities),
+            self.assertEqual(expand_activity('%work', activities, options),
                              'myotherwork')
             self.assertOutput(
                 'Select the desired match (empty line = cancel):',
@@ -2749,7 +2781,7 @@ class TestTimestat(unittest.TestCase):
 
             # Trying several times
             sys.stdin = NewStdin(['0', '3', 'xy', '1'])
-            self.assertEqual(expand_activity('%work', activities),
+            self.assertEqual(expand_activity('%work', activities, options),
                              'myotherwork')
             self.assertOutput(
                 'Select the desired match (empty line = cancel):',
@@ -2761,6 +2793,18 @@ class TestTimestat(unittest.TestCase):
                 'cancel.',
                 '> Please type one of the numbers above or an empty line to '
                 'cancel.',
+                '>')
+
+            # Test case insensivitity
+            options.re_flags = re.IGNORECASE
+            sys.stdin = NewStdin(['1'])
+            self.assertEqual(expand_activity('%work', activities, options),
+                             'myotherwork')
+            self.assertOutput(
+                'Select the desired match (empty line = cancel):',
+                '1: myotherwork',
+                '2: work',
+                '3: MyWork',
                 '>')
 
         finally:
