@@ -807,11 +807,18 @@ def show(options):
 
         else:
             if not options.sum:
-                d2 = {}
-                for key, value in activities.items():
-                    d2[key] = seconds_to_hhmm(value, options.seconds)
-                for key, value in sorted(d2.items()):
-                    print('%s: %s' % (key, value))
+                # [(activity (str), seconds (int))]
+                act_list = list(activities.items())
+
+                if options.sort_time:
+                    act_list.sort(key=lambda act_tuple: act_tuple[1],
+                                  reverse=True)
+                else:
+                    act_list.sort()
+
+                for activity, seconds in act_list:
+                    hhmm = seconds_to_hhmm(seconds, options.seconds)
+                    print('%s: %s' % (activity, hhmm))
 
             time_sum = sum(activities.values())
             time_sum = seconds_to_hhmm(time_sum, options.seconds)
@@ -1008,7 +1015,9 @@ Commands:
   show-sum              Show daily/weekly/monthly summary about time spent.
   show-status           Show the current activity.
   show-targets          Show targets.
-  test                  Run unit tests''', version = '%prog 3.0')
+  test                  Run unit tests
+  test-coverage         Run unit tests and measure test coverage\
+''', version = '%prog 3.0')
 
     # Common options
     parser.add_option('-f', '--actionfiles', dest='actionfiles',
@@ -1058,6 +1067,9 @@ Commands:
     parser.add_option('--nosum', dest='nosum',
                       action='store_true', default=False,
                       help='Do not print the sum of the activity time.')
+    parser.add_option('--sort-time', dest='sort_time',
+                      action='store_true', default=False,
+                      help='Print only the sum of the activity time.')
     parser.add_option('-i', '--ignore-activities', dest='ignore_activities',
                       default=None,
                       help='Ignores the given activities.')
@@ -1390,6 +1402,7 @@ class TestTimestat(unittest.TestCase):
         self.options.weekly_sum = False
         self.options.sum = False
         self.options.nosum = False
+        self.options.sort_time = False
         self.options.ignore_activities = None
         self.options.ignore_activities_pattern = None
         self.options.only_activities = None
@@ -2492,6 +2505,32 @@ class TestTimestat(unittest.TestCase):
         self.assertOutput('1872-03 x',
                           '1872-04 xxxx')
 
+    def test_show_sort_time(self):
+
+        self.create_action_file(
+            '''[1872-04-01 22:05:00] 0:10 awork
+               [1872-04-08 22:05:00] 0:30 bwork
+               [1872-04-08 22:05:00] 0:20 ework
+               [1872-04-08 22:05:00] 0:40 dwork
+               [1872-04-22 22:05:00] 0:50 cwork''')
+
+        self.now = [1872, 5, 10, 0, 0, 0]
+
+        main_core(['show'])
+        self.assertOutput('awork: 00:10',
+                          'bwork: 00:30',
+                          'cwork: 00:50',
+                          'dwork: 00:40',
+                          'ework: 00:20',
+                          'Sum: 02:30')
+
+        main_core(['show', '--sort-time'])
+        self.assertOutput('cwork: 00:50',
+                          'dwork: 00:40',
+                          'bwork: 00:30',
+                          'ework: 00:20',
+                          'awork: 00:10',
+                          'Sum: 02:30')
 
     def test_since_until(self):
 

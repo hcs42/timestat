@@ -329,6 +329,8 @@ Other options:
 - `-w, --weekly-sum`: Print a weekly summary (same as the `show-sum weekly`
   command).
 - `-s, --sum`: Print only the sum of the activity time.
+- `--nosum`: Don't print the sum of the activity time.
+- `--sort-time`: Sort the result by activity time.
 - `-c, --current`: Display the name of ongoing task, if any, and the
   time since the last action.
 - `--seconds`: Display the seconds in the printed intervals.
