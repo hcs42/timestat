@@ -1017,7 +1017,7 @@ Commands:
   show-targets          Show targets.
   test                  Run unit tests
   test-coverage         Run unit tests and measure test coverage\
-''', version = '%prog 3.0')
+''', version = '%prog 3.1')
 
     # Common options
     parser.add_option('-f', '--actionfiles', dest='actionfiles',
