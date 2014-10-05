@@ -696,7 +696,7 @@ def show_sum(options, datetime_to_key, key_to_date, key_to_text, step_days):
             # time with hh:mm format
             w(' (%s)', seconds_to_hhmm(d[k], options.seconds))
         w(' ' if d[k] >= block else '')  # space
-        w('x' * (d[k] // block))         # number of hours
+        w('x' * int(d[k] // block))         # number of hours
         wl()
     if options.avg:
         avg_time = seconds_to_hhmm(sum(d.values()) / len(d), options.seconds)
