@@ -167,6 +167,8 @@ Date formats:
 - `YYYY-wWW-D`: ISO week day (e.g. `2000-w02-3` is the Wednesday of week 2 in
   2000).
 - `wWW-D`: ISO week day in the current year.
+- `D`: Day of the week. E.g. `1` means last Monday (or today if today is
+  Monday), `2` is last Tuesday (or today), etc.
 
 ### full-help: print this README
 
