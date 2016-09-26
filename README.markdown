@@ -390,11 +390,11 @@ Other options:
 Example (one `x` means one hour spent):
 
     $ timestat show-sum daily -O ^work
-    2014-01-20 (06:20) xxxxxx
-    2014-01-21 (08:20) xxxxxxxx
-    2014-01-22 (09:34) xxxxxxxxx
-    2014-01-23 (07:19) xxxxxxx
-    2014-01-24 (08:34) xxxxxxxx
+    2014-01-20 xxxxxx
+    2014-01-21 xxxxxxxx
+    2014-01-22 xxxxxxxxx
+    2014-01-23 xxxxxxx
+    2014-01-24 xxxxxxxx
 
     $ timestat show-sum weekly --show-time -O ^hobby
     2014-w01 (21:20) xxxxxxxxxxxxxxxxxxxxx
