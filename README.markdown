@@ -19,6 +19,10 @@ Let's have a look at a quick demo of Timestat:
 
     $ export ACTIONFILES=$HOME/myactionfile
 
+    # If you use Windows paths such as "C:\dir", you should replace the default
+    # ":" separator with ";".
+    #$ export ACTIONFILE_SEPARATOR=';'
+
     $ timestat add mywork          # Started to work on 'mywork'
 
     $ timestat add myotherwork     # 20 minutes later, started to work on

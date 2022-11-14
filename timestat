@@ -1175,10 +1175,16 @@ Commands:
     options.re_flags = re_flags
 
     # Prepare: actionfiles
+    if os.getenv('ACTIONFILE_SEPARATOR') in (None, ''):
+        actionfile_separator = ':'
+    else:
+        actionfile_separator = os.getenv('ACTIONFILE_SEPARATOR')
+
     if options.actionfiles is not None:
-        options.actionfiles = options.actionfiles.split(':')
+        options.actionfiles = options.actionfiles.split(actionfile_separator)
     elif os.getenv('ACTIONFILES') not in (None, ''):
-        options.actionfiles = os.getenv('ACTIONFILES').split(':')
+        options.actionfiles = \
+            os.getenv('ACTIONFILES').split(actionfile_separator)
     else:
         # If there is no action file, don't proceed.
         return options, args
@@ -1361,6 +1367,7 @@ class TestTimestat(unittest.TestCase):
         # Empty environment variables
         os.environ['EDITOR'] = ''
         os.environ['ACTIONFILES'] = 'mock_actionfile_name'
+        os.environ['ACTIONFILE_SEPARATOR'] = ''
 
         # Mock stdout
         self.output = ''
@@ -2907,6 +2914,45 @@ class TestTimestat(unittest.TestCase):
         self.assertExit(cm, 1, 'You should set either the ACTIONFILES '
                                'environment variable or give --actionfiles '
                                'argument!')
+
+    def test_multiple_action_files(self):
+
+        ## 1. Colon works fine on linux as a separator between action files.
+
+        # 1/a. Use -f to pass the action file list.
+        os.environ['ACTIONFILES'] = ''
+        options, args = parse_args(['-f', 'first:second'])
+        self.assertEqual(options.actionfiles, ['first', 'second'])
+
+        # 1/b. Use environment variable to pass the action file list.
+        os.environ['ACTIONFILES'] = 'first:second'
+        options, args = parse_args([])
+        self.assertEqual(options.actionfiles, ['first', 'second'])
+
+        ## 2. Windows paths misbehave when the drive is specified.
+
+        # 2/a. Use -f to pass the action file list.
+        os.environ['ACTIONFILES'] = ''
+        options, args = parse_args(['-f', 'C:\\dir1;D:\\dir2'])
+        self.assertEqual(options.actionfiles, ['C', '\\dir1;D', '\\dir2'])
+
+        # 2/b. Use environment variable to pass the action file list.
+        os.environ['ACTIONFILES'] = 'C:\\dir1;D:\\dir2'
+        options, args = parse_args([])
+        self.assertEqual(options.actionfiles, ['C', '\\dir1;D', '\\dir2'])
+
+        ## 3. So we need to use ACTIONFILE_SEPARATOR in this situation.
+        os.environ['ACTIONFILE_SEPARATOR'] = ';'
+
+        # 3/a. Use -f to pass the action file list.
+        os.environ['ACTIONFILES'] = ''
+        options, args = parse_args(['-f', 'C:\\dir1;D:\\dir2'])
+        self.assertEqual(options.actionfiles, ['C:\\dir1', 'D:\\dir2'])
+
+        # 3/b. Use environment variable to pass the action file list.
+        os.environ['ACTIONFILES'] = 'C:\\dir1;D:\\dir2'
+        options, args = parse_args([])
+        self.assertEqual(options.actionfiles, ['C:\\dir1', 'D:\\dir2'])
 
     def test_check_args(self):
 
