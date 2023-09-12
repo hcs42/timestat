@@ -962,6 +962,7 @@ def quickadd(options, activity, duration=None):
     # If we have a duration, just pass it to "add"
     if duration is not None:
         add(options, duration + ' ' + activity)
+        wl('"%s" duration added to "%s" activity', duration, activity)
         return
 
     # If we have an activity, just pass it to "add_activity"
@@ -2734,7 +2735,7 @@ class TestTimestat(unittest.TestCase):
 
         self.now = [2009, 7, 25, 22, 5, 0]
         main_core(['quickadd', '10', 'myotherwork'])
-        self.assertOutput('')
+        self.assertOutput('"10" duration added to "myotherwork" activity')
 
         self.assertEqual(self.read_action_file(),
                          '[2009-07-25 20:00:00] mywork\n'
