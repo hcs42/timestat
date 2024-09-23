@@ -92,21 +92,21 @@ def str_to_date(s):
     if all([ch == 'y' for ch in s]):
         return datetime.date.today() - datetime.timedelta(days=len(s))
 
-    r = re.match('^(\d\d\d\d)-(\d\d)-(\d\d)$', s)
+    r = re.match(r'^(\d\d\d\d)-(\d\d)-(\d\d)$', s)
     if r:
         return datetime.date(
                    int(r.group(1)),
                    int(r.group(2)),
                    int(r.group(3)))
 
-    r = re.match('^(\d\d\d\d)-[Ww](\d\d)-(\d)$', s)
+    r = re.match(r'^(\d\d\d\d)-[Ww](\d\d)-(\d)$', s)
     if r:
         return isoweek_to_date(
                    int(r.group(1)),
                    int(r.group(2)),
                    int(r.group(3)))
 
-    r = re.match('^[Ww](\d\d\d\d)-(\d\d)-(\d)$', s)
+    r = re.match(r'^[Ww](\d\d\d\d)-(\d\d)-(\d)$', s)
     if r:
         return isoweek_to_date(
                    int(r.group(1)),
@@ -114,21 +114,21 @@ def str_to_date(s):
                    int(r.group(3)))
 
     year = datetime.date.today().year
-    r = re.match('^(\d\d)-(\d\d)$', s)
+    r = re.match(r'^(\d\d)-(\d\d)$', s)
     if r:
         return datetime.date(
                    year,
                    int(r.group(1)),
                    int(r.group(2)))
 
-    r = re.match('^[Ww](\d\d)-(\d)$', s)
+    r = re.match(r'^[Ww](\d\d)-(\d)$', s)
     if r:
         return isoweek_to_date(
                    year,
                    int(r.group(1)),
                    int(r.group(2)))
 
-    r = re.match('^(\d)$', s)
+    r = re.match(r'^(\d)$', s)
     if r:
 
         weekday = datetime.date.today().isoweekday()
@@ -159,15 +159,15 @@ def hhmm_to_seconds(s):
     # - H:M
     # - H:M:S
 
-    r = re.match('^(\d+)$', s)
+    r = re.match(r'^(\d+)$', s)
     if r:
         hours, minutes, seconds = 0, int(r.group(1)), 0
 
-    r = re.match('^(\d+):(\d+)$', s)
+    r = re.match(r'^(\d+):(\d+)$', s)
     if r:
         hours, minutes, seconds = int(r.group(1)), int(r.group(2)), 0
 
-    r = re.match('^(\d+):(\d+):(\d+)$', s)
+    r = re.match(r'^(\d+):(\d+):(\d+)$', s)
     if r:
         hours, minutes, seconds = \
             int(r.group(1)), int(r.group(2)), int(r.group(3))
@@ -380,14 +380,14 @@ class Action(Happening):
             return False
         if self.text == 'stop':
             self.type = 'stop'
-        elif r.match('^([^ ]+)$', self.text):
+        elif r.match(r'^([^ ]+)$', self.text):
             self.type = 'start'
             self.activity = r.group(1)
-        elif r.match('^increase-target ([^ ]+) ((?:\d|:)+)$', self.text):
+        elif r.match(r'^increase-target ([^ ]+) ((?:\d|:)+)$', self.text):
             self.type = 'target'
             self.activity = r.group(1)
             self.timelen = hhmm_to_seconds(r.group(2)) * multiplier
-        elif r.match('^((?:\d|:)+) ([^ ]+)$', self.text):
+        elif r.match(r'^((?:\d|:)+) ([^ ]+)$', self.text):
             self.type = 'interval'
             self.timelen = hhmm_to_seconds(r.group(1)) * multiplier
             self.activity = r.group(2)
